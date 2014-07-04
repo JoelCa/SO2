@@ -4,7 +4,7 @@ int main(int argc, char **argv) {
 
   //char buff[4];  
   //Read(buff, 80, Open("prueba.c"));
-  Write("bash: error\n", 12, ConsoleOutput);
+  Write("hola mundo\n", 11, ConsoleOutput);
 
   Exit(1);
 }

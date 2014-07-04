@@ -280,7 +280,7 @@ void syscallExec()
       readStrFromUsr(arg,argv[i]);
       DEBUG('u',"Exec: argumento %d \'%s\'\n", i, argv[i]);
     }
-    as = new AddrSpace(op);
+    as = new AddrSpace(op, name);
     t = new Thread(name, true);
     t->space = as;
     t->space->setArgs(argc, argv);
@@ -291,6 +291,36 @@ void syscallExec()
   machine->WriteRegister(2, pid);
   increasePC();
   delete op;
+}
+
+void pageFaultException()
+{
+  static int index = 0;
+  unsigned vaddr = machine->ReadRegister(BadVAddrReg); // la direccion virtual que genero el fallo esta en el registro BadVAddrReg
+  unsigned vpn = vaddr/PageSize; //ver si esta en rango, y si es de solo lectura o escritura
+
+
+  //DEBUG('v', "los datos en exception.cc es %d, %d, %d\n", vpn, vaddr, PageSize);
+  //esta bien este if?
+  if(vpn < currentThread->space->getNumPages()) {
+#ifdef USE_DEMAND_LOADING
+    if(currentThread->space->getEntry(vpn).virtualPage == -1) {
+      currentThread->space->loadPageEntry(vpn);
+    }
+    else{
+      DEBUG('v', "pagina ya cargada %d\n", vpn);
+    }
+#endif
+    if(machine->tlb[index].valid)
+      currentThread->space->putEntry(machine->tlb[index]);
+
+    machine->tlb[index] = currentThread->space->getEntry(vpn); // La cargamos en la TLB
+    index = (index + 1) % TLBSize; //index es global inicializada en cero
+      
+    machine->tlb[index].valid = true;
+  }
+  else
+    printf("vpn: %d\ntamaño de la tabla de paginación:%d\n", vpn, currentThread->space->getNumPages());
 }
 
 void
@@ -341,26 +371,8 @@ ExceptionHandler(ExceptionType which)
         break;
     }
   }
-  else if(which == PageFaultException) { //SOLO por TLB Miss
-    static int index = 0;
-    unsigned vaddr = machine->ReadRegister(BadVAddrReg); // la direccion virtual que genero el fallo esta en el registro BadVAddrReg
-    unsigned vpn = vaddr/PageSize; //ver si esta en rango, y si es de solo lectura o escritura
-
-    //esta bien este if?
-    if(vpn < currentThread->space->getNumPages()) {
-      if(machine->tlb[index].valid)
-        currentThread->space->putEntry(machine->tlb[index]);
-
-      machine->tlb[index] = currentThread->space->getEntry(vpn); // La cargamos en la TLB
-      index = (index + 1) % TLBSize; //index es global inicializada en cero
-      
-      machine->tlb[index].valid = true;
-    }
-    //printf("hola: %d   %d\n", vpn, currentThread->space->getNumPages());
-    // Faltaba:
-    //  - Invalidar TODA la TLB cada vez que un proceso comienza a ejecutar, AddrSpace::RestoreState. Echo
-    //  - Cuando un proceso deja de ejecutarse o "pisa" una entrada de la TLB, debe actualizar la pageTable con la TLB, AddrSpace::SaveState (sólo las entradas válidas). Echo
-  
+  else if(which == PageFaultException) {
+    pageFaultException();
   }
   else if(which == ReadOnlyException) {
     printf("exepción: ReadOnlyException\n");

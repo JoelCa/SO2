@@ -250,11 +250,13 @@ Thread::Finish ()
     threadsJoineables->Append(childThread);
     childThread->Join();
   }
-
-  float r = ((accessCounter - faultCounter) * 100) / accessCounter;
-
-  DEBUG('v', "Hit ratio: %3.1f \%\n", r);
-  //printf("%d %d\n", accessCounter, faultCounter);
+  
+  float hit = 100 - ((faultCounter * 100) / accessCounter);
+  DEBUG('v', "access %d\nfault %d\n", accessCounter, faultCounter);
+  if(accessCounter == 0)
+    DEBUG('v', "Hit ratio: 0 \%\n");
+  else
+    DEBUG('v', "Hit ratio: %3.1f \%\n", hit);
 
   threadToBeDestroyed = currentThread;
   Sleep();					// invokes SWITCH
