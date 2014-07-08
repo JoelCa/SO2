@@ -18,7 +18,6 @@
 #include "copyright.h"
 #include "system.h"
 #include "addrspace.h"
-//#include "noff.h"
 
 //----------------------------------------------------------------------
 // SwapHeader
@@ -295,7 +294,7 @@ void AddrSpace::loadPageEntry(int vpn)
   int physPage = bitMap->Find();
   int fileAddr;
   int vaddr;
-  int lim, aux;
+  int lim, aux = -1;
   NoffHeader noffH;
 
   OpenFile *executable = fileSystem->Open(fileName);
@@ -325,29 +324,32 @@ void AddrSpace::loadPageEntry(int vpn)
     aux = noffH.initData.inFileAddr + noffH.initData.size - fileAddr; //total de bytes que faltan para llegar al final del segmento de datos inicializados
   }
   else
-    DEBUG('v',"error: no entra en rango, vaddr: %d\n", vaddr);
+    DEBUG('v',"fuera de rango, vaddr: %d\n", vaddr);
   //preguntar
   //else
   //fileAddr = noffH.unInitData.inFileAddr + (vpn - noffH.unInitData.virtualAddr); 
 
-  lim = (PageSize <= aux) ? PageSize : aux;
+  if(aux != -1) {
 
-  DEBUG('v', "el inicio del code: %d\n", noffH.code.inFileAddr);
-  DEBUG('v', "el size del code: %d\n", noffH.code.size);
-  DEBUG('v', "el virtualAddr del code: %d\n", noffH.code.virtualAddr);
-  DEBUG('v', "el inicio del data: %d\n", noffH.initData.inFileAddr);
-  DEBUG('v', "el size del data: %d\n", noffH.initData.size);
-  DEBUG('v', "el virtualAddr del data: %d\n", noffH.initData.virtualAddr);
-  DEBUG('v', "el fileAddr: %d\n el vaddr: %d\n el lim: %d\n", fileAddr, vaddr, lim);
+    lim = (PageSize <= aux) ? PageSize : aux;
 
-  for(int i = 0; i < lim; i++) {
-    char c;
-    executable->ReadAt(&c, 1, fileAddr + i);
-    int virt_addr = i + vaddr;
-    int vpn_ = virt_addr/PageSize;
-    int phys_page = pageTable[vpn_].physicalPage;
-    int offset = virt_addr % PageSize;
-    machine->mainMemory[offset+phys_page*PageSize] = c;
+    DEBUG('v', "el inicio del code: %d\n", noffH.code.inFileAddr);
+    DEBUG('v', "el size del code: %d\n", noffH.code.size);
+    DEBUG('v', "el virtualAddr del code: %d\n", noffH.code.virtualAddr);
+    DEBUG('v', "el inicio del data: %d\n", noffH.initData.inFileAddr);
+    DEBUG('v', "el size del data: %d\n", noffH.initData.size);
+    DEBUG('v', "el virtualAddr del data: %d\n", noffH.initData.virtualAddr);
+    DEBUG('v', "el fileAddr: %d\n el vaddr: %d\n el lim: %d\n", fileAddr, vaddr, lim);
+
+    for(int i = 0; i < lim; i++) {
+      char c;
+      executable->ReadAt(&c, 1, fileAddr + i);
+      int virt_addr = i + vaddr;
+      int vpn_ = virt_addr/PageSize;
+      int phys_page = pageTable[vpn_].physicalPage;
+      int offset = virt_addr % PageSize;
+      machine->mainMemory[offset+phys_page*PageSize] = c;
+    }
   }
 
   delete executable;

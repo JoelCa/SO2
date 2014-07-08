@@ -298,9 +298,9 @@ void pageFaultException()
   static int index = 0;
   unsigned vaddr = machine->ReadRegister(BadVAddrReg); // la direccion virtual que genero el fallo esta en el registro BadVAddrReg
   unsigned vpn = vaddr/PageSize; //ver si esta en rango, y si es de solo lectura o escritura
+  unsigned vpn2 = vpn;
 
-
-  //DEBUG('v', "los datos en exception.cc es %d, %d, %d\n", vpn, vaddr, PageSize);
+  DEBUG('v', "los datos en exception.cc es %d, %d, %d\n", vpn, vaddr, PageSize);
   //esta bien este if?
   if(vpn < currentThread->space->getNumPages()) {
 #ifdef USE_DEMAND_LOADING
@@ -320,7 +320,7 @@ void pageFaultException()
     machine->tlb[index].valid = true;
   }
   else
-    printf("vpn: %d\ntamaño de la tabla de paginación:%d\n", vpn, currentThread->space->getNumPages());
+    printf("vpn: %d\ntamaño de la tabla de paginación:%d\n", vpn2, currentThread->space->getNumPages());
 }
 
 void
