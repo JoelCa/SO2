@@ -374,7 +374,7 @@ ExceptionHandler(ExceptionType which)
   else if(which == PageFaultException) {
     pageFaultException();
   }
-  else if(which == ReadOnlyException) {
+  else if(which == ReadOnlyException) { //FALTA
     printf("exepción: ReadOnlyException\n");
   }
   else {

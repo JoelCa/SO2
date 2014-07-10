@@ -19,8 +19,20 @@
 //Agregado para el ejercicio 3 (plancha 4) 
 #include "noff.h"
 
+//Agregado para el ejercicio 4 (plancha 4)
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #define UserStackSize		1024 	// increase this as necessary!
+
+
+class CoreMap {
+ public:
+  int virtualPage;
+  int sector;
+};
 
 class AddrSpace {
  public:
@@ -45,7 +57,13 @@ class AddrSpace {
   int getNumPages();
 
   //Agregado para el ejerc. 3 (plancha 4)
-  void loadPageEntry(int vpn); 
+  void loadPageEntry(int vpn);
+
+  //Agregado para el ejerc. 4 (plancha 4)
+  int index;
+
+  //Agregado para el ejerc. 4 (plancha 4)
+  static int addrIndex;
 
 
  private:
@@ -60,9 +78,11 @@ class AddrSpace {
 
   //Agregado para el ejerc. 3 (plancha 4)
   char *fileName;
-  
+
+  //Agregado para el ejerc. 4 (plancha 4)
+  int fileDesc;
+  CoreMap *coremap;
 
   //NoffHeader noffH;
 };
-
 #endif // ADDRSPACE_H

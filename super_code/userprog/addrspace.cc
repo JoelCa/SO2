@@ -19,6 +19,9 @@
 #include "system.h"
 #include "addrspace.h"
 
+
+int AddrSpace::addrIndex = 0;
+
 //----------------------------------------------------------------------
 // SwapHeader
 // 	Do little endian to big endian conversion on the bytes in the 
@@ -60,41 +63,66 @@ SwapHeader (NoffHeader *noffH)
 AddrSpace::AddrSpace(OpenFile *executable, char *name)
 {
   NoffHeader noffH;
-    int size;
-    unsigned j;
+  int size, position, counter;
+  unsigned j;
+  char swapName[11];
     
-    //agregado para el ejercicio 3  de la plancha 4
-    fileName = name;
+  //agregado para el ejercicio 3  de la plancha 4
+  fileName = name;
 
-    executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
-    if ((noffH.noffMagic != NOFFMAGIC) && 
-		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
-    	SwapHeader(&noffH);
-    ASSERT(noffH.noffMagic == NOFFMAGIC);
+  executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
+  if ((noffH.noffMagic != NOFFMAGIC) && 
+      (WordToHost(noffH.noffMagic) == NOFFMAGIC))
+    SwapHeader(&noffH);
+  ASSERT(noffH.noffMagic == NOFFMAGIC);
 
-// how big is address space?
-    size = noffH.code.size + noffH.initData.size + noffH.uninitData.size 
-			+ UserStackSize;	// we need to increase the size
-						// to leave room for the stack
-    numPages = divRoundUp(size, PageSize);
-    size = numPages * PageSize;
+  // how big is address space?
+  size = noffH.code.size + noffH.initData.size + noffH.uninitData.size 
+    + UserStackSize;	// we need to increase the size
+  // to leave room for the stack
+  numPages = divRoundUp(size, PageSize);
+  size = numPages * PageSize;
 
-    ASSERT(numPages <= NumPhysPages);		// check we're not trying
-						// to run anything too big --
-						// at least until we have
-						// virtual memory
+  //ASSERT(numPages <= NumPhysPages);		// check we're not trying
+  // to run anything too big --
+  // at least until we have
+  // virtual memory
 
-    DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
-					numPages, size);
-// first, set up the translation 
-    pageTable = new TranslationEntry[numPages];
-    for (j = 0; j < numPages; j++) {
+  DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
+        numPages, size);
+
+  //Agregado para el ejerc. 4 (Plancha 4)
+  sprintf(swapName, "SWAP%d.asid", addrIndex);
+  printf("nombre: %s\n",swapName);
+
+  if ((fileDesc = open(swapName, O_CREAT | O_RDWR | O_APPEND)) < 0) {
+    printf("error: open\n");
+  }
+
+  printf("valor: %d\n", fileDesc);
+
+  //atómico
+  addrIndex++;
+
+  index = 0;
+  
+  counter = 0;
+
+  // first, set up the translation 
+  pageTable = new TranslationEntry[numPages];
+  for (j = 0; j < numPages; j++) {
 #ifdef USE_DEMAND_LOADING
-      pageTable[j].virtualPage = -1;
+    pageTable[j].virtualPage = -1;
 #else
-      pageTable[j].virtualPage = j;
-      pageTable[j].physicalPage = bitMap->Find();
+    pageTable[j].virtualPage = j;
 #endif
+    if((position = bitMap->Find()) <0) {
+      coremap = new CoreMap[numPages - counter];
+      break;
+    }
+    else {
+      counter++;
+      pageTable[j].physicalPage = position;
       ASSERT(pageTable[j].physicalPage >=0);
       pageTable[j].valid = true;
       pageTable[j].use = false;
@@ -102,43 +130,66 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
       pageTable[j].readOnly = false;  // if the code segment was entirely on 
       // a separate page, we could set its 
       // pages to be read-only
-      }
-    
-// zero out the entire address space, to zero the unitialized data segment 
-// and the stack segment    
-    for(j=0;j<numPages;j++) {
-      int phys = pageTable[j].physicalPage;
-      bzero(&(machine->mainMemory[phys*PageSize]), PageSize);
     }
-// then, copy in the code and data segments into memory
+  }
+
+  if(j != numPages - 1) {
+    //cargo informacion en el coremap
+    for(int i = 0; i < numPages - counter; i++){
+      coremap[i].virtualPage = j + i;
+      coremap[i].sector = i;
+    }
+
+    //cargo las paginas restantes del proceso, en el archivo SWAP
+  }
+ 
+  // zero out the entire address space, to zero the unitialized data segment 
+  // and the stack segment    
+  for(j=0;j<numPages;j++) {
+    int phys = pageTable[j].physicalPage;
+    bzero(&(machine->mainMemory[phys*PageSize]), PageSize);
+  }
+  // then, copy in the code and data segments into memory
 
 #ifndef USE_DEMAND_LOADING
-    if (noffH.code.size > 0) {
-      DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
-            noffH.code.virtualAddr, noffH.code.size);
-      for(int i=0; i < noffH.code.size; i++) {
-        char c;
-        executable->ReadAt(&c, 1, i + noffH.code.inFileAddr);
-        int virt_addr = i + noffH.code.virtualAddr;
-        int vpn = virt_addr/PageSize;
+  if (noffH.code.size > 0) {
+    DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
+          noffH.code.virtualAddr, noffH.code.size);
+    for(int i=0; i < noffH.code.size; i++) {
+      char c;
+      executable->ReadAt(&c, 1, i + noffH.code.inFileAddr);
+      int virt_addr = i + noffH.code.virtualAddr;
+      int vpn = virt_addr/PageSize;
+      if (vpn < counter) {
+        int phys_page = pageTable[vpn].physicalPage;
+        int offset = virt_addr % PageSize;
+        machine->mainMemory[offset+phys_page*PageSize] = c;
+      }
+      else {
+        int phys_sector = coremap[counter - vpn].sector;
+        int offset = virt_addr % PageSize;
+        if(lseek(fileDesc, offset+phys_sector*PageSize, SEEK_SET) < 0)
+          printf("error: lseek\n");
+        write(fileDesc, &c, 1);
+        
+      }
+    }
+  }
+  if (noffH.initData.size > 0) {
+    DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
+          noffH.initData.virtualAddr, noffH.initData.size);
+    for(int i=0; i < noffH.initData.size; i++) {
+      char c;
+      executable->ReadAt(&c, 1, i + noffH.initData.inFileAddr);
+      int virt_addr = i + noffH.initData.virtualAddr;
+      int vpn = virt_addr/PageSize;
+      if (vpn < counter) {
         int phys_page = pageTable[vpn].physicalPage;
         int offset = virt_addr % PageSize;
         machine->mainMemory[offset+phys_page*PageSize] = c;
       }
     }
-    if (noffH.initData.size > 0) {
-      DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
-            noffH.initData.virtualAddr, noffH.initData.size);
-      for(int i=0; i < noffH.initData.size; i++) {
-        char c;
-        executable->ReadAt(&c, 1, i + noffH.initData.inFileAddr);
-        int virt_addr = i + noffH.initData.virtualAddr;
-        int vpn = virt_addr/PageSize;
-        int phys_page = pageTable[vpn].physicalPage;
-        int offset = virt_addr % PageSize;
-        machine->mainMemory[offset+phys_page*PageSize] = c;
-      }
-    }
+  }
 #endif
 }
 

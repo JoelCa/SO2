@@ -28,6 +28,9 @@ Timer *timer;				// the hardware timer device,
 PreemptiveScheduler* preemptiveScheduler = NULL;
 const long long DEFAULT_TIME_SLICE = 50000;
 
+//Agregado para el ejerc. 4 (plancha 4)
+int addrIndex;
+
 #ifdef FILESYS_NEEDED
 FileSystem  *fileSystem;
 #endif
@@ -184,7 +187,7 @@ Initialize(int argc, char **argv)
         preemptiveScheduler = new PreemptiveScheduler();
         preemptiveScheduler->SetUp(timeSlice);
     }
-
+    
     
 #ifdef USER_PROGRAM
     machine = new Machine(debugUserProg);	// this must come first
