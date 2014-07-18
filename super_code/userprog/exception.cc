@@ -299,13 +299,14 @@ void pageFaultException()
   unsigned vaddr = machine->ReadRegister(BadVAddrReg); // la direccion virtual que genero el fallo esta en el registro BadVAddrReg
   unsigned vpn = vaddr/PageSize; //ver si esta en rango, y si es de solo lectura o escritura
   unsigned vpn2 = vpn;
+  TranslationEntry entry;
 
   DEBUG('v', "los datos en exception.cc es %d, %d, %d\n", vpn, vaddr, PageSize);
   //esta bien este if?
   if(vpn < currentThread->space->getNumPages()) {
 #ifdef USE_DEMAND_LOADING
     if(currentThread->space->getEntry(vpn).virtualPage == -1) {
-      currentThread->space->loadPageEntry(vpn);
+      currentThread->space->loadPageFromBin(vpn);
     }
     else{
       DEBUG('v', "pagina ya cargada %d\n", vpn);
@@ -314,7 +315,11 @@ void pageFaultException()
     if(machine->tlb[index].valid)
       currentThread->space->putEntry(machine->tlb[index]);
 
-    machine->tlb[index] = currentThread->space->getEntry(vpn); // La cargamos en la TLB
+    entry = currentThread->space->getEntry(vpn);
+    if(entry.valid) //la página está en memoria
+      machine->tlb[index] = entry; // cargamos en la TLB
+    else
+      currentThread->space->loadPageFromSwap(vpn);
     index = (index + 1) % TLBSize; //index es global inicializada en cero
       
     machine->tlb[index].valid = true;

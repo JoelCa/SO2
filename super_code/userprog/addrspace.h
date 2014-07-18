@@ -57,13 +57,12 @@ class AddrSpace {
   int getNumPages();
 
   //Agregado para el ejerc. 3 (plancha 4)
-  void loadPageEntry(int vpn);
+  void loadPageFromBin(int vpn);
 
   //Agregado para el ejerc. 4 (plancha 4)
-  int index;
-
-  //Agregado para el ejerc. 4 (plancha 4)
+  void loadPageFromSwap(int vpn);
   static int addrIndex;
+  int getNextPage();
 
 
  private:

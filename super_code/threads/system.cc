@@ -28,9 +28,6 @@ Timer *timer;				// the hardware timer device,
 PreemptiveScheduler* preemptiveScheduler = NULL;
 const long long DEFAULT_TIME_SLICE = 50000;
 
-//Agregado para el ejerc. 4 (plancha 4)
-int addrIndex;
-
 #ifdef FILESYS_NEEDED
 FileSystem  *fileSystem;
 #endif
