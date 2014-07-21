@@ -13,6 +13,13 @@
 #include <stdlib.h>     /* srand, rand */
 #include <time.h>       /* time */
 
+
+//Agregado para el ejercicio 4 (plancha 4)
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 // This defines *all* of the global data structures used by Nachos.
 // These are all initialized and de-allocated by this file.
 
@@ -42,6 +49,8 @@ Machine *machine;	// user program memory and registers
 //Agregados para el ejerc. 2 (plancha 3)
 SynchConsole *synchConsole;
 BitMap *bitMap;
+BitMap *bitMapSwap;
+int fileDesc;
 #endif
 
 #ifdef NETWORK
@@ -93,7 +102,7 @@ Initialize(int argc, char **argv)
     int argCount;
     const char* debugArgs = "";
     bool randomYield = false;
-    
+    char swapName[11];    
 
 // 2007, Jose Miguel Santos Espino
     bool preemptiveScheduling = false;
@@ -157,6 +166,16 @@ Initialize(int argc, char **argv)
 #endif
     }
 
+#ifdef VM
+    sprintf(swapName, "SWAP.asid");
+
+    if ((fileDesc = open(swapName, O_CREAT | O_RDWR | O_APPEND)) < 0) {
+      printf("error: open\n");
+    }
+
+    printf("valor del descriptor del archivo SWAP: %d\n", fileDesc);
+#endif
+
     DebugInit(debugArgs);			// initialize DEBUG messages
     stats = new Statistics();			// collect statistics
     interrupt = new Interrupt;			// start up interrupt handling
@@ -192,6 +211,7 @@ Initialize(int argc, char **argv)
     //Agregados para el ejerc. 2 (plancha 3)
     synchConsole = new SynchConsole();
     bitMap = new BitMap(NumPhysPages);
+    bitMapSwap = new BitMap(NumPhysPages);
 #endif
 
 #ifdef FILESYS
@@ -230,6 +250,7 @@ Cleanup()
     //Agregados para el ejerc. 2 (plancha 3)
     delete synchConsole;
     delete bitMap;
+    delete bitMapSwap;
 #endif
 
 #ifdef FILESYS_NEEDED

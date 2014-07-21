@@ -39,6 +39,7 @@ extern SynchConsole *synchConsole;
 
 #include "bitmap.h"
 extern BitMap *bitMap;
+extern BitMap *bitMapSwap;
 #endif
 
 #ifdef FILESYS_NEEDED 		// FILESYS or FILESYS_STUB 

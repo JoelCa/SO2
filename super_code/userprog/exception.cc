@@ -308,7 +308,7 @@ void pageFaultException()
     if(currentThread->space->getEntry(vpn).virtualPage == -1) {
       currentThread->space->loadPageFromBin(vpn);
     }
-    else{
+    else {
       DEBUG('v', "pagina ya cargada %d\n", vpn);
     }
 #endif

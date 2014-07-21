@@ -20,7 +20,7 @@
 #include "addrspace.h"
 
 
-int AddrSpace::addrIndex = 0;
+//int AddrSpace::addrIndex = 0;
 
 //----------------------------------------------------------------------
 // SwapHeader
@@ -59,11 +59,11 @@ SwapHeader (NoffHeader *noffH)
 //	"executable" is the file containing the object code to load into memory
 //----------------------------------------------------------------------
 
-//Modificado para el ejerc. 3 (plancha 3)
+//Modificado para la plancha 3 y 4
 AddrSpace::AddrSpace(OpenFile *executable, char *name)
 {
   NoffHeader noffH;
-  int size, physPosition, coreMapSize, limitInMem;
+  int size, physPosition, coreMapSize;
   unsigned j;
   char swapName[11];
   bool useCoreMap;
@@ -92,21 +92,12 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
   DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
         numPages, size);
 
-  //Agregado para el ejerc. 4 (Plancha 4)
-  sprintf(swapName, "SWAP%d.asid", addrIndex);
-  printf("nombre: %s\n",swapName);
 
-  if ((fileDesc = open(swapName, O_CREAT | O_RDWR | O_APPEND)) < 0) {
-    printf("error: open\n");
-  }
-
-  printf("valor: %d\n", fileDesc);
-
-  //atómico
-  addrIndex++;
-  
+  //Agregados para el ejerc. 4 (Plancha 4)
+  indexFIFO = 0;
   coreMapSize = 0;
   useCoreMap = false;
+
   // first, set up the translation 
   pageTable = new TranslationEntry[numPages];
   for (j = 0; j < numPages; j++) {
@@ -202,7 +193,6 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
           printf("error: lseek\n");
         write(fileDesc, &c, 1);        
       }
-
     }
   }
 #endif
@@ -213,12 +203,13 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
 // 	Dealloate an address space.  Nothing for now!
 //----------------------------------------------------------------------
 
-//Modificado para el ejerc. 3 (plancha 3)
+//Modificado para la plancha 3 y 4
 AddrSpace::~AddrSpace()
 {
   for(unsigned int i=0; i < numPages; i++)
     bitMap->Clear(pageTable[i].physicalPage);
   delete [] pageTable;
+  close(fileDesc);
 }
 
 //----------------------------------------------------------------------
@@ -421,9 +412,43 @@ void AddrSpace::loadPageFromBin(int vpn)
   delete executable;
 }
 
+
+//terminar
+void AddrSpace::savePageToSwap(int vpn)
+{
+  int vaddrMem = vpn*PageSize;
+  //  int vaddrSwap = 
+  int phys_sector = bitMapSwap->Find();
+
+ for(int i = 0; i < PageSize; i++) {
+   int virt_addr = i + vaddrMem;
+   int phys_page = pageTable[vpn].physicalPage;
+   int offset = virt_addr % PageSize;
+   char c = machine->mainMemory[offset+phys_page*PageSize];
+
+   //FALTA CALCULAR EL OFFSET
+   if(lseek(fileDesc, offset+phys_sector*PageSize, SEEK_SET) < 0)
+     printf("error: lseek\n");
+   write(fileDesc, &c, 1);
+
+   // read(fileDesc, &c, 1);
+   // int virt_addr = coremap[vpn].virtualPage;
+   // int phys_page = getNextPage();
+   // machine->mainMemory[offset+phys_page*PageSize] = c;
+ }
+}
+
+//ESTA MAL - COMPLETAR
 void AddrSpace::loadPageFromSwap(int vpn)
 {
+  // pageTable[j].virtualPage = j;
+  // pageTable[j].physicalPage = physPosition;
+  // pageTable[j].valid = true;
+
   for(int i = 0; i < PageSize; i++) {
+    //pageTable[j].virtualPage = j;
+    //int phys_page = pageTable[vpn].physicalPage;
+    //FALTA
     char c;
     read(fileDesc, &c, 1);
     int virt_addr = coremap[vpn].virtualPage;
@@ -431,10 +456,14 @@ void AddrSpace::loadPageFromSwap(int vpn)
     int offset = virt_addr % PageSize;
     machine->mainMemory[offset+phys_page*PageSize] = c;
   }
+
 }
 
-//COMPLETAR
 int AddrSpace::getNextPage()
 {
-  return 0;
+  int aux = indexFIFO;
+
+  indexFIFO = (indexFIFO + 1) % limitInMem;
+  
+  return aux;
 }

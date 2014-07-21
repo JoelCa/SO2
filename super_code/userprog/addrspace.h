@@ -61,7 +61,7 @@ class AddrSpace {
 
   //Agregado para el ejerc. 4 (plancha 4)
   void loadPageFromSwap(int vpn);
-  static int addrIndex;
+  void savePageToSwap(int vpn);
   int getNextPage();
 
 
@@ -81,7 +81,9 @@ class AddrSpace {
   //Agregado para el ejerc. 4 (plancha 4)
   int fileDesc;
   CoreMap *coremap;
-
+  int limitInMem;
+  int indexFIFO;
+  
   //NoffHeader noffH;
 };
 #endif // ADDRSPACE_H
