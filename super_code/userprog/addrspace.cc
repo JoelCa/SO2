@@ -95,7 +95,6 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
 
   //Agregados para el ejerc. 4 (Plancha 4)
   indexFIFO = 0;
-  coreMapSize = 0;
   useCoreMap = false;
 
   // first, set up the translation 
@@ -109,7 +108,6 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
     if((physPosition = bitMap->Find()) == -1) {
       useCoreMap = true;
       limitInMem = j;
-      coreMapSize = numPages - limitInMem;
       break;
     }
     else {
@@ -134,11 +132,17 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
       pageTable[i].readOnly = false;
     }
       
-    coremap = new CoreMap[coreMapSize];
+    coremap = new CoreMap[numPages];
     //cargo informacion en el coremap
-    for(int i = 0; i < coreMapSize; i++){
-      coremap[i].virtualPage = j + i;
-      coremap[i].sector = i;
+    for(int i = 0; i < numPages; i++){
+      if(i < limitInMem)
+        coremap[i].valid = false;
+      else {
+        coremap[i].virtualPage = i;
+        coremap[i].sector = bitMapSwap->Find();
+        ASSERT(coremap[i].sector >= 0); //por si no hay sectores disponibles en swap
+        coremap[i].valid = true;
+      }
     }
   }
  
@@ -167,7 +171,7 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
         machine->mainMemory[offset+phys_page*PageSize] = c;
       }
       else {
-        int phys_sector = coremap[limitInMem - vpn].sector;
+        int phys_sector = coremap[vpn].sector;
         if(lseek(fileDesc, offset+phys_sector*PageSize, SEEK_SET) < 0)
           printf("error: lseek\n");
         write(fileDesc, &c, 1);
@@ -188,7 +192,7 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
         machine->mainMemory[offset+phys_page*PageSize] = c;
       }
       else {
-        int phys_sector = coremap[limitInMem- vpn].sector;
+        int phys_sector = coremap[vpn].sector;
         if(lseek(fileDesc, offset+phys_sector*PageSize, SEEK_SET) < 0)
           printf("error: lseek\n");
         write(fileDesc, &c, 1);        
@@ -414,56 +418,79 @@ void AddrSpace::loadPageFromBin(int vpn)
 
 
 //terminar
-void AddrSpace::savePageToSwap(int vpn)
+void AddrSpace::savePageToSwap(int victimVpn)
 {
-  int vaddrMem = vpn*PageSize;
-  //  int vaddrSwap = 
+  int vaddrMem = victimVpn *PageSize;
   int phys_sector = bitMapSwap->Find();
+  int phys_page = pageTable[victimVpn].physicalPage;
 
- for(int i = 0; i < PageSize; i++) {
+  ///////////////////////Pasamos la pagina victima a swap
+ 
+  for(int i = 0; i < PageSize; i++) {
    int virt_addr = i + vaddrMem;
-   int phys_page = pageTable[vpn].physicalPage;
    int offset = virt_addr % PageSize;
    char c = machine->mainMemory[offset+phys_page*PageSize];
 
-   //FALTA CALCULAR EL OFFSET
    if(lseek(fileDesc, offset+phys_sector*PageSize, SEEK_SET) < 0)
      printf("error: lseek\n");
    write(fileDesc, &c, 1);
+  }
 
-   // read(fileDesc, &c, 1);
-   // int virt_addr = coremap[vpn].virtualPage;
-   // int phys_page = getNextPage();
-   // machine->mainMemory[offset+phys_page*PageSize] = c;
- }
+ //completamos la fila correspondiente de coremap
+ coremap[victimVpn].virtualPage = victimVpn;
+ coremap[victimVpn].sector = phys_sector;
+ coremap[victimVpn].valid = true;
+
+ //para decir que no esta en memoria fisica
+ pageTable[victimVpn].valid = false;
+
+ //marco como libre la pagina fisica
+ bitMap->Clear(phys_page);
+
 }
 
-//ESTA MAL - COMPLETAR
 void AddrSpace::loadPageFromSwap(int vpn)
 {
-  // pageTable[j].virtualPage = j;
-  // pageTable[j].physicalPage = physPosition;
-  // pageTable[j].valid = true;
-
+  int phys_sector = coremap[vpn].sector;
+  int phys_page = getNextPage();
+ 
+  ///////////////////////Pasamos a memoria la pagina que necesitamos
+  
   for(int i = 0; i < PageSize; i++) {
-    //pageTable[j].virtualPage = j;
-    //int phys_page = pageTable[vpn].physicalPage;
-    //FALTA
     char c;
+
+    if(lseek(fileDesc, i+phys_sector*PageSize, SEEK_SET) < 0)
+     printf("error: lseek\n");
     read(fileDesc, &c, 1);
-    int virt_addr = coremap[vpn].virtualPage;
-    int phys_page = getNextPage();
+
+    int virt_addr = i + (vpn * PageSize);
     int offset = virt_addr % PageSize;
     machine->mainMemory[offset+phys_page*PageSize] = c;
   }
 
+  //completamos la fila correspondiente de coremap
+  coremap[vpn].valid = false;
+
+  //para decir que no esta en memoria fisica
+  pageTable[vpn].valid = true;
+  pageTable[vpn].virtualPage = vpn;
+  pageTable[vpn].physicalPage = phys_page;
+
+  //marco como libre la pagina fisica
+  bitMapSwap->Clear(phys_sector);
 }
 
 int AddrSpace::getNextPage()
 {
-  int aux = indexFIFO;
+  int aux;
 
-  indexFIFO = (indexFIFO + 1) % limitInMem;
+  while(pageTable[indexFIFO].valid == false) {
+   indexFIFO = (indexFIFO + 1) % numPages;
+  }
+
+  aux = indexFIFO;
+
+  indexFIFO = (indexFIFO + 1) % numPages;
   
   return aux;
 }

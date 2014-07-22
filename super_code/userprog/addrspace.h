@@ -32,7 +32,9 @@ class CoreMap {
  public:
   int virtualPage;
   int sector;
+  bool valid;
 };
+
 
 class AddrSpace {
  public:
