@@ -49,8 +49,7 @@ Machine *machine;	// user program memory and registers
 //Agregados para el ejerc. 2 (plancha 3)
 SynchConsole *synchConsole;
 BitMap *bitMap;
-BitMap *bitMapSwap;
-int fileDesc;
+//CoreMap *coremap;
 #endif
 
 #ifdef NETWORK
@@ -166,16 +165,6 @@ Initialize(int argc, char **argv)
 #endif
     }
 
-#ifdef VM
-    sprintf(swapName, "SWAP.asid");
-
-    if ((fileDesc = open(swapName, O_CREAT | O_RDWR | O_APPEND)) < 0) {
-      printf("error: open\n");
-    }
-
-    printf("valor del descriptor del archivo SWAP: %d\n", fileDesc);
-#endif
-
     DebugInit(debugArgs);			// initialize DEBUG messages
     stats = new Statistics();			// collect statistics
     interrupt = new Interrupt;			// start up interrupt handling
@@ -211,7 +200,7 @@ Initialize(int argc, char **argv)
     //Agregados para el ejerc. 2 (plancha 3)
     synchConsole = new SynchConsole();
     bitMap = new BitMap(NumPhysPages);
-    bitMapSwap = new BitMap(NumPhysPages);
+    //    coremap = new CoreMap();
 #endif
 
 #ifdef FILESYS
@@ -247,10 +236,12 @@ Cleanup()
 #ifdef USER_PROGRAM
     delete machine;
 
-    //Agregados para el ejerc. 2 (plancha 3)
+    //Agregado para el ejerc. 2 (plancha 3)
     delete synchConsole;
+
+    //Agregado para el ejerc. 1 (plancha 1)
     delete bitMap;
-    delete bitMapSwap;
+    //    delete coremap;
 #endif
 
 #ifdef FILESYS_NEEDED

@@ -20,7 +20,7 @@
 #include "addrspace.h"
 
 
-//int AddrSpace::addrIndex = 0;
+int AddrSpace::indexFIFO = 0;
 
 //----------------------------------------------------------------------
 // SwapHeader
@@ -63,10 +63,10 @@ SwapHeader (NoffHeader *noffH)
 AddrSpace::AddrSpace(OpenFile *executable, char *name)
 {
   NoffHeader noffH;
-  int size, physPosition, coreMapSize;
+  int size, physPosition;
   unsigned j;
   char swapName[11];
-  bool useCoreMap;
+  bool useSwap;
     
   //agregado para el ejercicio 3  de la plancha 4
   fileName = name;
@@ -94,8 +94,7 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
 
 
   //Agregados para el ejerc. 4 (Plancha 4)
-  indexFIFO = 0;
-  useCoreMap = false;
+  useSwap = false;
 
   // first, set up the translation 
   pageTable = new TranslationEntry[numPages];
@@ -106,7 +105,7 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
     pageTable[j].virtualPage = j;
 #endif
     if((physPosition = bitMap->Find()) == -1) {
-      useCoreMap = true;
+      useSwap = true;
       limitInMem = j;
       break;
     }
@@ -121,7 +120,14 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
     }
   }
 
-  if(useCoreMap) {
+  if(useSwap) {
+    sprintf(swapName, "SWAP.%d", asid);
+
+    if ((swapDesc = open(swapName, O_CREAT | O_RDWR | O_APPEND)) < 0) {
+      printf("error: open\n");
+    }
+    printf("valor del swapDesc de %s: %d\n", swapName, swapDesc);
+
     for(int i = limitInMem; i < numPages; i++) {
       pageTable[i].virtualPage = i;
       pageTable[i].physicalPage = -1;
@@ -132,16 +138,16 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
       pageTable[i].readOnly = false;
     }
       
-    coremap = new CoreMap[numPages];
-    //cargo informacion en el coremap
+    swapMap = new SwapMap[numPages];
+    //cargo informacion en el swapMap
     for(int i = 0; i < numPages; i++){
       if(i < limitInMem)
-        coremap[i].valid = false;
+        swapMap[i].valid = false;
       else {
-        coremap[i].virtualPage = i;
-        coremap[i].sector = bitMapSwap->Find();
-        ASSERT(coremap[i].sector >= 0); //por si no hay sectores disponibles en swap
-        coremap[i].valid = true;
+        swapMap[i].virtualPage = i;
+        swapMap[i].sector = swapBitMap->Find();
+        ASSERT(swapMap[i].sector >= 0); //por si no hay sectores disponibles en swap
+        swapMap[i].valid = true;
       }
     }
   }
@@ -171,10 +177,10 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
         machine->mainMemory[offset+phys_page*PageSize] = c;
       }
       else {
-        int phys_sector = coremap[vpn].sector;
-        if(lseek(fileDesc, offset+phys_sector*PageSize, SEEK_SET) < 0)
+        int phys_sector = swapMap[vpn].sector;
+        if(lseek(swapDesc, offset+phys_sector*PageSize, SEEK_SET) < 0)
           printf("error: lseek\n");
-        write(fileDesc, &c, 1);
+        write(swapDesc, &c, 1);
       }
     }
   }
@@ -192,10 +198,10 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
         machine->mainMemory[offset+phys_page*PageSize] = c;
       }
       else {
-        int phys_sector = coremap[vpn].sector;
-        if(lseek(fileDesc, offset+phys_sector*PageSize, SEEK_SET) < 0)
+        int phys_sector = swapMap[vpn].sector;
+        if(lseek(swapDesc, offset+phys_sector*PageSize, SEEK_SET) < 0)
           printf("error: lseek\n");
-        write(fileDesc, &c, 1);        
+        write(swapDesc, &c, 1);        
       }
     }
   }
@@ -213,7 +219,9 @@ AddrSpace::~AddrSpace()
   for(unsigned int i=0; i < numPages; i++)
     bitMap->Clear(pageTable[i].physicalPage);
   delete [] pageTable;
-  close(fileDesc);
+  delete [] swapMap;
+  delete swapBitMap;
+  close(swapDesc);
 }
 
 //----------------------------------------------------------------------
@@ -333,10 +341,6 @@ void AddrSpace::writeArgs()
 //suponemos que vpn esta el rango correcto
 TranslationEntry AddrSpace::getEntry(int vpn)
 {
-  //for(unsigned int i = 0; i < numPages; i++) {
-  //  if (pageTable[i].virtualPage == vpn)
-  //    return pageTable[i];
-  // }
   return pageTable[vpn];
 }
 
@@ -421,7 +425,7 @@ void AddrSpace::loadPageFromBin(int vpn)
 void AddrSpace::savePageToSwap(int victimVpn)
 {
   int vaddrMem = victimVpn *PageSize;
-  int phys_sector = bitMapSwap->Find();
+  int phys_sector = swapBitMap->Find();
   int phys_page = pageTable[victimVpn].physicalPage;
 
   ///////////////////////Pasamos la pagina victima a swap
@@ -431,15 +435,15 @@ void AddrSpace::savePageToSwap(int victimVpn)
    int offset = virt_addr % PageSize;
    char c = machine->mainMemory[offset+phys_page*PageSize];
 
-   if(lseek(fileDesc, offset+phys_sector*PageSize, SEEK_SET) < 0)
+   if(lseek(swapDesc, offset+phys_sector*PageSize, SEEK_SET) < 0)
      printf("error: lseek\n");
-   write(fileDesc, &c, 1);
+   write(swapDesc, &c, 1);
   }
 
- //completamos la fila correspondiente de coremap
- coremap[victimVpn].virtualPage = victimVpn;
- coremap[victimVpn].sector = phys_sector;
- coremap[victimVpn].valid = true;
+ //completamos la fila correspondiente de swapMap
+ swapMap[victimVpn].virtualPage = victimVpn;
+ swapMap[victimVpn].sector = phys_sector;
+ swapMap[victimVpn].valid = true;
 
  //para decir que no esta en memoria fisica
  pageTable[victimVpn].valid = false;
@@ -451,25 +455,25 @@ void AddrSpace::savePageToSwap(int victimVpn)
 
 void AddrSpace::loadPageFromSwap(int vpn)
 {
-  int phys_sector = coremap[vpn].sector;
-  int phys_page = getNextPage();
+  int phys_sector = swapMap[vpn].sector;
+  int phys_page = getNextPage(pageTable, numPages);
  
   ///////////////////////Pasamos a memoria la pagina que necesitamos
   
   for(int i = 0; i < PageSize; i++) {
     char c;
 
-    if(lseek(fileDesc, i+phys_sector*PageSize, SEEK_SET) < 0)
+    if(lseek(swapDesc, i+phys_sector*PageSize, SEEK_SET) < 0)
      printf("error: lseek\n");
-    read(fileDesc, &c, 1);
+    read(swapDesc, &c, 1);
 
     int virt_addr = i + (vpn * PageSize);
     int offset = virt_addr % PageSize;
     machine->mainMemory[offset+phys_page*PageSize] = c;
   }
 
-  //completamos la fila correspondiente de coremap
-  coremap[vpn].valid = false;
+  //completamos la fila correspondiente de swapMap
+  swapMap[vpn].valid = false;
 
   //para decir que no esta en memoria fisica
   pageTable[vpn].valid = true;
@@ -477,20 +481,21 @@ void AddrSpace::loadPageFromSwap(int vpn)
   pageTable[vpn].physicalPage = phys_page;
 
   //marco como libre la pagina fisica
-  bitMapSwap->Clear(phys_sector);
+  swapBitMap->Clear(phys_sector);
 }
 
-int AddrSpace::getNextPage()
+int AddrSpace::getNextPage(TranslationEntry *pageTable, int numPages)
 {
   int aux;
+  int index = AddrSpace::indexFIFO;
 
-  while(pageTable[indexFIFO].valid == false) {
-   indexFIFO = (indexFIFO + 1) % numPages;
+  while(pageTable[index].valid == false) {
+   index = (index + 1) % numPages;
   }
 
-  aux = indexFIFO;
+  aux = index;
 
-  indexFIFO = (indexFIFO + 1) % numPages;
+  index = (index + 1) % numPages;
   
   return aux;
 }

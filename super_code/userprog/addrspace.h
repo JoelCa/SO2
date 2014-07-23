@@ -25,10 +25,12 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "bitmap.h"
+
 #define UserStackSize		1024 	// increase this as necessary!
 
 
-class CoreMap {
+class SwapMap {
  public:
   int virtualPage;
   int sector;
@@ -64,8 +66,10 @@ class AddrSpace {
   //Agregado para el ejerc. 4 (plancha 4)
   void loadPageFromSwap(int vpn);
   void savePageToSwap(int vpn);
-  int getNextPage();
+  void setASID(int value) {asid = value; };
 
+  static int indexFIFO;
+  static int getNextPage(TranslationEntry *pageTable, int numPages);
 
  private:
   TranslationEntry *pageTable;	// Assume linear page table translation
@@ -81,10 +85,11 @@ class AddrSpace {
   char *fileName;
 
   //Agregado para el ejerc. 4 (plancha 4)
-  int fileDesc;
-  CoreMap *coremap;
+  int swapDesc;
   int limitInMem;
-  int indexFIFO;
+  BitMap *swapBitMap;
+  SwapMap *swapMap;
+  int asid; //address space id
   
   //NoffHeader noffH;
 };

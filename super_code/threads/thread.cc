@@ -452,6 +452,7 @@ Thread::addOpFile(OpenFile *op)
   return fileDescriptor - 1;
 }
 
+
 Thread *searchThread(int pid)
 {
   return Thread::tList->RemoveItemPrio(pid);
@@ -459,10 +460,12 @@ Thread *searchThread(int pid)
 
 int addThread(Thread *t)
 {
+  t->space->setASID(Thread::pidCounter);
   Thread::tList->SortedInsert(t, Thread::pidCounter);
   Thread::pidCounter++;
   return Thread::pidCounter - 1;
 }
+
 
 void Thread::incAccessCounter()
 {
