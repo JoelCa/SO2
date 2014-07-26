@@ -49,7 +49,8 @@ Machine *machine;	// user program memory and registers
 //Agregados para el ejerc. 2 (plancha 3)
 SynchConsole *synchConsole;
 BitMap *bitMap;
-//CoreMap *coremap;
+CoreMap *coremap = new CoreMap[NumPhysPages];
+
 #endif
 
 #ifdef NETWORK
@@ -109,6 +110,14 @@ Initialize(int argc, char **argv)
     
 #ifdef USER_PROGRAM
     bool debugUserProg = false;	// single step user program
+
+    //Agregado para el ejercicio 4 (Plancha 4), inicializamos el coremap
+    for(int i = 0; i < NumPhysPages; i++) {
+      coremap[i].physPage = i; //innecesario
+      coremap[i].thread = NULL;
+    }
+
+
 #endif
 #ifdef FILESYS_NEEDED
     bool format = false;	// format disk
@@ -200,8 +209,7 @@ Initialize(int argc, char **argv)
     //Agregados para el ejerc. 2 (plancha 3)
     synchConsole = new SynchConsole();
     bitMap = new BitMap(NumPhysPages);
-    //    coremap = new CoreMap();
-#endif
+  #endif
 
 #ifdef FILESYS
     synchDisk = new SynchDisk("DISK");
@@ -241,7 +249,7 @@ Cleanup()
 
     //Agregado para el ejerc. 1 (plancha 1)
     delete bitMap;
-    //    delete coremap;
+    delete [] coremap;
 #endif
 
 #ifdef FILESYS_NEEDED

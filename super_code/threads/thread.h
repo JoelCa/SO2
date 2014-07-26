@@ -107,9 +107,6 @@ class Thread {
     //Agregados para el ejercicio 2 (plancha 4)
     int accessCounter;
     int faultCounter;
-
-    //Agregados para el ejercicio 4 (plancha 4)
-    int asid; //address space id
     
   public:
     Thread(const char* debugName);	// initialize a Thread 
@@ -160,9 +157,6 @@ class Thread {
     //Agregados para el ejercicio 2 (plancha 4)
     void incAccessCounter();
     void incFaultCounter();
-
-    //Agregados para el ejercicio 4 (plancha 4)
-    void setASID(int value) {asid = value; };
 
   private:
     // some of the private data for this class is listed above

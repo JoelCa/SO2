@@ -299,6 +299,7 @@ void pageFaultException()
   unsigned vaddr = machine->ReadRegister(BadVAddrReg); // la direccion virtual que genero el fallo esta en el registro BadVAddrReg
   unsigned vpn = vaddr/PageSize; //ver si esta en rango, y si es de solo lectura o escritura
   unsigned vpn2 = vpn;
+  int physPage = bitMap->Find();
   TranslationEntry entry;
 
   DEBUG('v', "los datos en exception.cc es %d, %d, %d\n", vpn, vaddr, PageSize);
@@ -312,17 +313,44 @@ void pageFaultException()
       DEBUG('v', "pagina ya cargada %d\n", vpn);
     }
 #endif
+
+#ifdef VM
     if(machine->tlb[index].valid)
       currentThread->space->putEntry(machine->tlb[index]);
+#endif
 
     entry = currentThread->space->getEntry(vpn);
-    if(entry.valid) //la página está en memoria
+
+#ifdef VM   
+    if(entry.valid) { //la página está en memoria
       machine->tlb[index] = entry; // cargamos en la TLB
-    else
-      currentThread->space->loadPageFromSwap(vpn);
-    index = (index + 1) % TLBSize; //index es global inicializada en cero
-      
+      index = (index + 1) % TLBSize;
+      return ;
+    }
+#endif
+    
+    if(!entry.valid) {
+      if(physPage > -1)
+        currentThread->space->loadPageFromSwap(vpn, physPage);
+      else {
+        physPage = currentThread->space->victimIndex;
+        printf("el phys del victimIndex %d\n", physPage);
+        currentThread->space->savePageToSwap(physPage);
+        currentThread->space->loadPageFromSwap(vpn, physPage);
+        currentThread->space->incIndex();
+      }
+    }
+
+#ifdef VM
+    printf("el phys cargado %d\n", physPage);
     machine->tlb[index].valid = true;
+    machine->tlb[index].virtualPage = vpn;
+    machine->tlb[index].physicalPage = physPage;
+    machine->tlb[index].readOnly = false;
+    machine->tlb[index].use = true;
+    machine->tlb[index].dirty = false;   
+    index = (index + 1) % TLBSize; //index es global inicializada en cero      
+#endif  
   }
   else
     printf("vpn: %d\ntamaño de la tabla de paginación:%d\n", vpn2, currentThread->space->getNumPages());

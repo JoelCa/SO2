@@ -28,7 +28,7 @@
 const unsigned STACK_FENCEPOST = 0xdeadbeef;
 
 //Agregados para el ejercicio 2 (plancha 3)
-int Thread::pidCounter = 0;	
+int Thread::pidCounter = 1;	
 List <Thread *> *Thread::tList = new List <Thread *> ();
 
 //----------------------------------------------------------------------
@@ -460,7 +460,6 @@ Thread *searchThread(int pid)
 
 int addThread(Thread *t)
 {
-  t->space->setASID(Thread::pidCounter);
   Thread::tList->SortedInsert(t, Thread::pidCounter);
   Thread::pidCounter++;
   return Thread::pidCounter - 1;

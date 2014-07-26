@@ -64,12 +64,15 @@ class AddrSpace {
   void loadPageFromBin(int vpn);
 
   //Agregado para el ejerc. 4 (plancha 4)
-  void loadPageFromSwap(int vpn);
+  void loadPageFromSwap(int vpn, int physPage);
   void savePageToSwap(int vpn);
-  void setASID(int value) {asid = value; };
+  //void setASID(int value) {asid = value; };
+  int getSwapDescriptor();
+  void toSwap(int vpn);
 
-  static int indexFIFO;
-  static int getNextPage(TranslationEntry *pageTable, int numPages);
+  static int ASID;
+  static int victimIndex;
+  static void incIndex();
 
  private:
   TranslationEntry *pageTable;	// Assume linear page table translation
@@ -88,8 +91,6 @@ class AddrSpace {
   int swapDesc;
   int limitInMem;
   BitMap *swapBitMap;
-  SwapMap *swapMap;
-  int asid; //address space id
   
   //NoffHeader noffH;
 };

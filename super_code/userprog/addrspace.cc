@@ -20,7 +20,8 @@
 #include "addrspace.h"
 
 
-int AddrSpace::indexFIFO = 0;
+int AddrSpace::victimIndex = 0;
+int AddrSpace::ASID = 0;
 
 //----------------------------------------------------------------------
 // SwapHeader
@@ -117,17 +118,27 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
       pageTable[j].readOnly = false;  // if the code segment was entirely on 
       // a separate page, we could set its 
       // pages to be read-only
+
+      //completo el coremap
+      coremap[physPosition].vpn = j;
+      coremap[physPosition].thread = currentThread;
     }
   }
 
+  printf("el asid: %d\n", ASID);
+  sprintf(swapName, "SWAP.%d", ASID);
+  ASID++;
+  
+  //OpenFile* Open(swapName);
+
+
+  if ((swapDesc = open(swapName, O_CREAT | O_RDWR, S_IRWXU)) < 0) {
+    printf("error: open\n");
+    abort();
+  }
+  printf("valor del swapDesc de %s: %d\n", swapName, swapDesc);
+
   if(useSwap) {
-    sprintf(swapName, "SWAP.%d", asid);
-
-    if ((swapDesc = open(swapName, O_CREAT | O_RDWR | O_APPEND)) < 0) {
-      printf("error: open\n");
-    }
-    printf("valor del swapDesc de %s: %d\n", swapName, swapDesc);
-
     for(int i = limitInMem; i < numPages; i++) {
       pageTable[i].virtualPage = i;
       pageTable[i].physicalPage = -1;
@@ -137,21 +148,8 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
       pageTable[i].dirty = false;
       pageTable[i].readOnly = false;
     }
-      
-    swapMap = new SwapMap[numPages];
-    //cargo informacion en el swapMap
-    for(int i = 0; i < numPages; i++){
-      if(i < limitInMem)
-        swapMap[i].valid = false;
-      else {
-        swapMap[i].virtualPage = i;
-        swapMap[i].sector = swapBitMap->Find();
-        ASSERT(swapMap[i].sector >= 0); //por si no hay sectores disponibles en swap
-        swapMap[i].valid = true;
-      }
-    }
   }
- 
+
   // zero out the entire address space, to zero the unitialized data segment 
   // and the stack segment    
   for(j=0;j<numPages;j++) {
@@ -177,9 +175,9 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
         machine->mainMemory[offset+phys_page*PageSize] = c;
       }
       else {
-        int phys_sector = swapMap[vpn].sector;
-        if(lseek(swapDesc, offset+phys_sector*PageSize, SEEK_SET) < 0)
-          printf("error: lseek\n");
+        int phys_sector = vpn; //swapMap[vpn].sector;
+        ASSERT(lseek(swapDesc, offset+phys_sector*PageSize, SEEK_SET) >= 0)
+          //printf("error: lseek\n");
         write(swapDesc, &c, 1);
       }
     }
@@ -198,9 +196,10 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
         machine->mainMemory[offset+phys_page*PageSize] = c;
       }
       else {
-        int phys_sector = swapMap[vpn].sector;
-        if(lseek(swapDesc, offset+phys_sector*PageSize, SEEK_SET) < 0)
-          printf("error: lseek\n");
+        int phys_sector = vpn;
+        //int phys_sector = swapMap[vpn].sector;
+        ASSERT(lseek(swapDesc, offset+phys_sector*PageSize, SEEK_SET) >= 0)
+          //printf("error: lseek\n");
         write(swapDesc, &c, 1);        
       }
     }
@@ -216,10 +215,11 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
 //Modificado para la plancha 3 y 4
 AddrSpace::~AddrSpace()
 {
-  for(unsigned int i=0; i < numPages; i++)
-    bitMap->Clear(pageTable[i].physicalPage);
+  for(unsigned int i=0; i < numPages; i++) {
+    if(pageTable[i].valid)
+      bitMap->Clear(pageTable[i].physicalPage);
+  }
   delete [] pageTable;
-  delete [] swapMap;
   delete swapBitMap;
   close(swapDesc);
 }
@@ -341,12 +341,24 @@ void AddrSpace::writeArgs()
 //suponemos que vpn esta el rango correcto
 TranslationEntry AddrSpace::getEntry(int vpn)
 {
+  printf("tenemos : %d %d %d\n", pageTable[vpn].physicalPage, pageTable[vpn].virtualPage, pageTable[vpn].valid);
   return pageTable[vpn];
 }
 
 void AddrSpace::putEntry(TranslationEntry e)
 {
+  printf("el vpn: %d\n", e.virtualPage);
+
   pageTable[e.virtualPage] = e;
+    /*
+  int vpn = e.virtualPage;
+  pageTable[vpn].virtualPage = vpn;
+  pageTable[vpn].physicalPage = e.physicalPage;
+  pageTable[vpn].valid = e.valid;
+  pageTable[vpn].readOnly = e.readOnly;
+  pageTable[vpn].use = e.use;
+  pageTable[vpn].dirty = e.dirty;
+    */
 }
 
 int AddrSpace::getNumPages()
@@ -422,80 +434,83 @@ void AddrSpace::loadPageFromBin(int vpn)
 
 
 //terminar
-void AddrSpace::savePageToSwap(int victimVpn)
+void AddrSpace::savePageToSwap(int physPage)
 {
-  int vaddrMem = victimVpn *PageSize;
-  int phys_sector = swapBitMap->Find();
-  int phys_page = pageTable[victimVpn].physicalPage;
-
+  int val;
+  int vpn = coremap[physPage].vpn;
+  int vaddrMem = vpn * PageSize;
+  //Sector del swap
+  int phys_sector = vpn;
+  Thread *victimThread = coremap[physPage].thread;
   ///////////////////////Pasamos la pagina victima a swap
  
-  for(int i = 0; i < PageSize; i++) {
-   int virt_addr = i + vaddrMem;
-   int offset = virt_addr % PageSize;
-   char c = machine->mainMemory[offset+phys_page*PageSize];
 
-   if(lseek(swapDesc, offset+phys_sector*PageSize, SEEK_SET) < 0)
-     printf("error: lseek\n");
-   write(swapDesc, &c, 1);
+  for(int i = 0; i < PageSize; i++) {
+    int virt_addr = i + vaddrMem;
+    int offset = virt_addr % PageSize;
+    char c = machine->mainMemory[offset+physPage*PageSize]; // puedo poner i en vez de offset?
+
+    int swapD = victimThread->space->getSwapDescriptor();
+    if((val = lseek(swapD, offset+phys_sector*PageSize, SEEK_SET)) < 0) {
+      perror("lseek");
+      printf("error: lseek %d %d %d\n", val, offset+phys_sector*PageSize,swapD);
+
+    }
+    write(swapD, &c, 1);
   }
 
- //completamos la fila correspondiente de swapMap
- swapMap[victimVpn].virtualPage = victimVpn;
- swapMap[victimVpn].sector = phys_sector;
- swapMap[victimVpn].valid = true;
-
- //para decir que no esta en memoria fisica
- pageTable[victimVpn].valid = false;
-
- //marco como libre la pagina fisica
- bitMap->Clear(phys_page);
-
+  //marcar en el proceso correspondiente que vpn esta en swap
+  victimThread->space->toSwap(vpn);
+  
+  //marco como libre la pagina fisica
+  bitMap->Clear(physPage);
 }
 
-void AddrSpace::loadPageFromSwap(int vpn)
+void AddrSpace::loadPageFromSwap(int vpn, int physPage)
 {
-  int phys_sector = swapMap[vpn].sector;
-  int phys_page = getNextPage(pageTable, numPages);
+  //Sector del swap
+  int phys_sector = vpn;
+  //int phys_page = getNextPage(pageTable, numPages);
  
   ///////////////////////Pasamos a memoria la pagina que necesitamos
   
+
+  printf("el physpage: %d\n", physPage);
   for(int i = 0; i < PageSize; i++) {
     char c;
-
-    if(lseek(swapDesc, i+phys_sector*PageSize, SEEK_SET) < 0)
-     printf("error: lseek\n");
+    ASSERT(lseek(swapDesc, i+phys_sector*PageSize, SEEK_SET) >= 0)
+      //printf("error: lseek\n");
     read(swapDesc, &c, 1);
 
     int virt_addr = i + (vpn * PageSize);
     int offset = virt_addr % PageSize;
-    machine->mainMemory[offset+phys_page*PageSize] = c;
+    machine->mainMemory[offset+physPage*PageSize] = c;
   }
 
-  //completamos la fila correspondiente de swapMap
-  swapMap[vpn].valid = false;
-
-  //para decir que no esta en memoria fisica
+  //actualizo el coremap
+  coremap[physPage].vpn = vpn;
+  coremap[physPage].thread = currentThread;
+  
+  //actualizo la pageTable
   pageTable[vpn].valid = true;
   pageTable[vpn].virtualPage = vpn;
-  pageTable[vpn].physicalPage = phys_page;
+  pageTable[vpn].physicalPage = physPage;
 
-  //marco como libre la pagina fisica
-  swapBitMap->Clear(phys_sector);
+  bitMap->Mark(physPage);
 }
 
-int AddrSpace::getNextPage(TranslationEntry *pageTable, int numPages)
+void AddrSpace::incIndex()
 {
-  int aux;
-  int index = AddrSpace::indexFIFO;
-
-  while(pageTable[index].valid == false) {
-   index = (index + 1) % numPages;
-  }
-
-  aux = index;
-
-  index = (index + 1) % numPages;
-  
-  return aux;
+  AddrSpace::victimIndex = (AddrSpace::victimIndex + 1) % NumPhysPages;
 }
+
+int AddrSpace::getSwapDescriptor()
+{
+  return swapDesc;
+}
+
+void AddrSpace::toSwap(int vpn)
+{
+  pageTable[vpn].valid = false; 
+}
+  
