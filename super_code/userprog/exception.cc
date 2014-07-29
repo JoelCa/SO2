@@ -47,23 +47,23 @@ void writeMem(int addr, int size, int value)
 //Agregados para el ejerc. 1 (plancha 3)
 void readStrFromUsr(int usrAddr, char *outStr)
 {
-  char *aux = new char('1');
+  int aux = -1;
   int i;
 
-  for(i=0; *aux != '\0'; i++, usrAddr++) {
-    readMem(usrAddr,1,(int *)aux);
-    outStr[i] = *aux;
+  for(i=0; aux != '\0'; i++, usrAddr++) {
+    readMem(usrAddr,1,&aux);
+    outStr[i] = (char)aux;
   }
   outStr[i] = '\0';
 }
 
 void readBuffFromUsr(int usrAddr, char *outStr, int byteCount)
 { 
-  int *aux = new int;
+  int aux = -1;
 
   for(int i=0; i < byteCount; i++, usrAddr++) {
-    readMem(usrAddr, 1, aux);
-    outStr[i] = *aux;
+    readMem(usrAddr, 1, &aux);
+    outStr[i] = (char)aux;
   }
 }
 
@@ -241,6 +241,7 @@ void syscallJoin()
   Thread *t;
 
   if((t = searchThread(pid)) != NULL) {
+    printf("el thread %p hace Join\n", t);
     t->Join();
     status = t->getMsj();
     DEBUG('u', "Join: el retorno del hijo es %d\n", status);
@@ -293,6 +294,9 @@ void syscallExec()
   delete op;
 }
 
+
+//Observación:
+//-Si NO se usa SWAP <-> todas las páginas estan en memoria
 void pageFaultException()
 {
   static int index = 0;
@@ -302,7 +306,8 @@ void pageFaultException()
   int physPage = bitMap->Find();
   TranslationEntry entry;
 
-  DEBUG('v', "los datos en exception.cc es %d, %d, %d\n", vpn, vaddr, PageSize);
+  DEBUG('v', "Los datos en exception.cc es %d, %d, %d\n", vpn, vaddr, PageSize);
+
   //esta bien este if?
   if(vpn < currentThread->space->getNumPages()) {
 #ifdef USE_DEMAND_LOADING
@@ -314,46 +319,52 @@ void pageFaultException()
     }
 #endif
 
-#ifdef VM
+    entry = currentThread->space->getEntry(vpn);
+
+#ifdef USE_TLB
     if(machine->tlb[index].valid)
       currentThread->space->putEntry(machine->tlb[index]);
 #endif
 
-    entry = currentThread->space->getEntry(vpn);
+#if defined(USE_TLB) && !defined(USE_SWAP)
+    machine->tlb[index] = entry; // cargamos en la TLB
+    index = (index + 1) % TLBSize;
+    return ;
+#endif
 
-#ifdef VM   
+#ifdef USE_SWAP
     if(entry.valid) { //la página está en memoria
       machine->tlb[index] = entry; // cargamos en la TLB
       index = (index + 1) % TLBSize;
       return ;
     }
-#endif
-    
-    if(!entry.valid) {
-      if(physPage > -1)
-        currentThread->space->loadPageFromSwap(vpn, physPage);
-      else {
-        physPage = currentThread->space->victimIndex;
-        printf("el phys del victimIndex %d\n", physPage);
-        currentThread->space->savePageToSwap(physPage);
-        currentThread->space->loadPageFromSwap(vpn, physPage);
-        currentThread->space->incIndex();
-      }
-    }
 
-#ifdef VM
-    printf("el phys cargado %d\n", physPage);
-    machine->tlb[index].valid = true;
-    machine->tlb[index].virtualPage = vpn;
-    machine->tlb[index].physicalPage = physPage;
-    machine->tlb[index].readOnly = false;
-    machine->tlb[index].use = true;
-    machine->tlb[index].dirty = false;   
+    if(physPage >= 0)
+      currentThread->space->loadPageFromSwap(vpn, physPage);
+    else {
+      physPage = currentThread->space->victimIndex;
+      //printf("el victimIndex %d\n", physPage);
+      currentThread->space->savePageToSwap(physPage);
+      entry = currentThread->space->loadPageFromSwap(vpn, physPage);
+      currentThread->space->incIndex();
+    }
+#endif
+
+#ifdef USE_TLB
+    //printf("el physPage cargado %d\n", physPage);
+    machine->tlb[index] = entry;
+    // machine->tlb[index].valid = true;
+    // machine->tlb[index].virtualPage = vpn;
+    // machine->tlb[index].physicalPage = physPage;
+    // machine->tlb[index].readOnly = false;
+    // machine->tlb[index].use = true;
+    // machine->tlb[index].dirty = false;   
     index = (index + 1) % TLBSize; //index es global inicializada en cero      
-#endif  
+#endif
+
   }
   else
-    printf("vpn: %d\ntamaño de la tabla de paginación:%d\n", vpn2, currentThread->space->getNumPages());
+    printf("VPN: %d\nTamaño de la tabla de paginación:%d\n", vpn2, currentThread->space->getNumPages());
 }
 
 void

@@ -106,9 +106,14 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
     pageTable[j].virtualPage = j;
 #endif
     if((physPosition = bitMap->Find()) == -1) {
+#ifdef USE_SWAP
       useSwap = true;
       limitInMem = j;
       break;
+#else
+      DEBUG('v', "error: páginas físicas insuficientes para cargar el proceso en memoria\n");
+      ASSERT(false);
+#endif
     }
     else {
       pageTable[j].physicalPage = physPosition;
@@ -125,12 +130,12 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
     }
   }
 
+#ifdef USE_SWAP
   printf("el asid: %d\n", ASID);
   sprintf(swapName, "SWAP.%d", ASID);
   ASID++;
   
   //OpenFile* Open(swapName);
-
 
   if ((swapDesc = open(swapName, O_CREAT | O_RDWR, S_IRWXU)) < 0) {
     printf("error: open\n");
@@ -149,6 +154,7 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
       pageTable[i].readOnly = false;
     }
   }
+#endif
 
   // zero out the entire address space, to zero the unitialized data segment 
   // and the stack segment    
@@ -341,14 +347,12 @@ void AddrSpace::writeArgs()
 //suponemos que vpn esta el rango correcto
 TranslationEntry AddrSpace::getEntry(int vpn)
 {
-  printf("tenemos : %d %d %d\n", pageTable[vpn].physicalPage, pageTable[vpn].virtualPage, pageTable[vpn].valid);
+  DEBUG('v', "Se quiere obtener la pagina con physPage %d, vpn %d, y valid %d\n", pageTable[vpn].physicalPage, pageTable[vpn].virtualPage, pageTable[vpn].valid);
   return pageTable[vpn];
 }
 
 void AddrSpace::putEntry(TranslationEntry e)
 {
-  printf("el vpn: %d\n", e.virtualPage);
-
   pageTable[e.virtualPage] = e;
     /*
   int vpn = e.virtualPage;
@@ -466,16 +470,15 @@ void AddrSpace::savePageToSwap(int physPage)
   bitMap->Clear(physPage);
 }
 
-void AddrSpace::loadPageFromSwap(int vpn, int physPage)
+TranslationEntry AddrSpace::loadPageFromSwap(int vpn, int physPage)
 {
   //Sector del swap
   int phys_sector = vpn;
-  //int phys_page = getNextPage(pageTable, numPages);
  
   ///////////////////////Pasamos a memoria la pagina que necesitamos
   
 
-  printf("el physpage: %d\n", physPage);
+  printf("Se carga página desde Swap con vpn %d y physPage %d\n", vpn, physPage);
   for(int i = 0; i < PageSize; i++) {
     char c;
     ASSERT(lseek(swapDesc, i+phys_sector*PageSize, SEEK_SET) >= 0)
@@ -497,7 +500,10 @@ void AddrSpace::loadPageFromSwap(int vpn, int physPage)
   pageTable[vpn].physicalPage = physPage;
 
   bitMap->Mark(physPage);
+  
+  return pageTable[vpn];
 }
+
 
 void AddrSpace::incIndex()
 {

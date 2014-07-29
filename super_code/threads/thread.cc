@@ -62,6 +62,8 @@ Thread::Thread(const char* threadName)
     //Agregado para el ejerc. 2 (plancha 3)
     opFiles = new List <OpenFile *> ();
     fileDescriptor = 2;
+    message = -1;
+    printf("Valor message: %p en thread %p\n", message, currentThread);
      
     //Agregado para el ejercicio 2 (plancha 4)
     accessCounter = 0;
@@ -97,6 +99,8 @@ Thread::Thread(const char* threadName, bool join)
   //Agregado para el ejerc. 2 (plancha 3)
   opFiles = new List <OpenFile *> ();
   fileDescriptor = 2;
+  message = -1;
+  printf("Valor message: %p en thread %p\n", message, currentThread);
 
   //Agregado para el ejercicio 2 (plancha 4)
   accessCounter = 0;
@@ -270,16 +274,17 @@ Thread::Join()
 {
 
   ASSERT( (parentThread->threadsJoineables)->IndexRemove(this) && 
-         (parentThread == currentThread) && (joineable == true) )
+          (parentThread == currentThread) && (joineable == true) );
 
-  int *msj = new int;
+  int msj = -1;
 
   DEBUG('t', "El thread %s realiza join\n", currentThread->getName());
-  puerto->Receive(msj);
+  puerto->Receive(&msj);
   DEBUG('t', "El thread %s finaliza join\n", currentThread->getName());
+  printf("Valor message: %p\n", message);
 
-  message = *msj;  
-  delete msj;
+  message = msj;  
+  //delete msj;
 }
 
 //----------------------------------------------------------------------

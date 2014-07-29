@@ -14,7 +14,7 @@ public:
 
 private:
   Console *console;
-  Lock **lockList;
+  Lock *lock0, *lock1;
   static Semaphore *readAvail, *writeDone;
   static void ReadAvail(void* arg);
   static void WriteDone(void* arg);

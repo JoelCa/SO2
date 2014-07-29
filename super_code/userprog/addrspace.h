@@ -64,7 +64,7 @@ class AddrSpace {
   void loadPageFromBin(int vpn);
 
   //Agregado para el ejerc. 4 (plancha 4)
-  void loadPageFromSwap(int vpn, int physPage);
+  TranslationEntry loadPageFromSwap(int vpn, int physPage);
   void savePageToSwap(int vpn);
   //void setASID(int value) {asid = value; };
   int getSwapDescriptor();
