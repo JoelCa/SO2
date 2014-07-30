@@ -63,7 +63,7 @@ Thread::Thread(const char* threadName)
     opFiles = new List <OpenFile *> ();
     fileDescriptor = 2;
     message = -1;
-    printf("Valor message: %p en thread %p\n", message, currentThread);
+    DEBUG('v', "Valor message: %p en thread %p\n", message, currentThread);
      
     //Agregado para el ejercicio 2 (plancha 4)
     accessCounter = 0;
@@ -100,7 +100,7 @@ Thread::Thread(const char* threadName, bool join)
   opFiles = new List <OpenFile *> ();
   fileDescriptor = 2;
   message = -1;
-  printf("Valor message: %p en thread %p\n", message, currentThread);
+  DEBUG('v', "Valor message: %p en thread %p\n", message, currentThread);
 
   //Agregado para el ejercicio 2 (plancha 4)
   accessCounter = 0;
@@ -255,12 +255,13 @@ Thread::Finish ()
     childThread->Join();
   }
   
-  float hit = 100 - ((faultCounter * 100) / accessCounter);
-  DEBUG('v', "access %d\nfault %d\n", accessCounter, faultCounter);
   if(accessCounter == 0)
     DEBUG('v', "Hit ratio: 0 \%\n");
-  else
+  else {
+    float hit = 100 - ((faultCounter * 100) / accessCounter);
     DEBUG('v', "Hit ratio: %3.1f \%\n", hit);
+    DEBUG('v', "access %d\nfault %d\n", accessCounter, faultCounter);
+  }
 
   threadToBeDestroyed = currentThread;
   Sleep();					// invokes SWITCH
@@ -281,7 +282,7 @@ Thread::Join()
   DEBUG('t', "El thread %s realiza join\n", currentThread->getName());
   puerto->Receive(&msj);
   DEBUG('t', "El thread %s finaliza join\n", currentThread->getName());
-  printf("Valor message: %p\n", message);
+  DEBUG('v', "Valor message: %p\n", message);
 
   message = msj;  
   //delete msj;

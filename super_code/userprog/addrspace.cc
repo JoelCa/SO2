@@ -93,18 +93,26 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
   DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
         numPages, size);
 
-
   //Agregados para el ejerc. 4 (Plancha 4)
   useSwap = false;
 
   // first, set up the translation 
   pageTable = new TranslationEntry[numPages];
   for (j = 0; j < numPages; j++) {
+
 #ifdef USE_DEMAND_LOADING
-    pageTable[j].virtualPage = -1;
+    pageTable[j].virtualPage = -1; //La página NO se cargo del binario
+    pageTable[j].physicalPage = -1;
+    pageTable[j].valid = false;
+    pageTable[j].use = false;
+    pageTable[j].dirty = false;
+    pageTable[j].readOnly = false;
+    continue;
 #else
     pageTable[j].virtualPage = j;
+    pageTable[j].valid = true;
 #endif
+
     if((physPosition = bitMap->Find()) == -1) {
 #ifdef USE_SWAP
       useSwap = true;
@@ -117,7 +125,6 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
     }
     else {
       pageTable[j].physicalPage = physPosition;
-      pageTable[j].valid = true;
       pageTable[j].use = false;
       pageTable[j].dirty = false;
       pageTable[j].readOnly = false;  // if the code segment was entirely on 
@@ -131,17 +138,15 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
   }
 
 #ifdef USE_SWAP
-  printf("el asid: %d\n", ASID);
   sprintf(swapName, "SWAP.%d", ASID);
   ASID++;
   
   //OpenFile* Open(swapName);
 
   if ((swapDesc = open(swapName, O_CREAT | O_RDWR, S_IRWXU)) < 0) {
-    printf("error: open\n");
-    abort();
+    perror("open");
   }
-  printf("valor del swapDesc de %s: %d\n", swapName, swapDesc);
+  DEBUG('v', "swapDesc de %s: %d\n", swapName, swapDesc);
 
   if(useSwap) {
     for(int i = limitInMem; i < numPages; i++) {
@@ -295,8 +300,14 @@ void AddrSpace::RestoreState()
 {
   //printf("entro a restoreState %p\n", currentThread);
 #ifdef USE_TLB
-  for (int i = 0; i < TLBSize; i++)
+  for (int i = 0; i < TLBSize; i++) {
     machine->tlb[i].valid = false;
+    machine->tlb[i].physicalPage = -1;
+    machine->tlb[i].virtualPage = -1;
+    machine->tlb[i].readOnly = false;
+    machine->tlb[i].use = false;
+    machine->tlb[i].dirty = false;
+  }
 
   /*for (int i = 0; i < TLBSize; i++)
     printf("tlb: %d %d\n", i, machine->tlb[i].valid);
@@ -347,7 +358,7 @@ void AddrSpace::writeArgs()
 //suponemos que vpn esta el rango correcto
 TranslationEntry AddrSpace::getEntry(int vpn)
 {
-  DEBUG('v', "Se quiere obtener la pagina con physPage %d, vpn %d, y valid %d\n", pageTable[vpn].physicalPage, pageTable[vpn].virtualPage, pageTable[vpn].valid);
+  //DEBUG('v', "Se quiere obtener la pagina con physPage %d, vpn %d, y valid %d\n", pageTable[vpn].physicalPage, pageTable[vpn].virtualPage, pageTable[vpn].valid);
   return pageTable[vpn];
 }
 
@@ -370,7 +381,7 @@ int AddrSpace::getNumPages()
   return numPages;
 }
 
-void AddrSpace::loadPageFromBin(int vpn)
+TranslationEntry AddrSpace::loadPageFromBin(int vpn)
 {
   int physPage = bitMap->Find();
   int fileAddr;
@@ -386,9 +397,6 @@ void AddrSpace::loadPageFromBin(int vpn)
     SwapHeader(&noffH);
   ASSERT(noffH.noffMagic == NOFFMAGIC);
 
-  DEBUG('v', "el vpn en loadPageEntry es: %d\n", vpn);
-  pageTable[vpn].virtualPage = vpn;
-  pageTable[vpn].physicalPage = physPage;
   
   ASSERT(physPage >=0);
 
@@ -425,20 +433,28 @@ void AddrSpace::loadPageFromBin(int vpn)
     for(int i = 0; i < lim; i++) {
       char c;
       executable->ReadAt(&c, 1, fileAddr + i);
-      int virt_addr = i + vaddr;
-      int vpn_ = virt_addr/PageSize;
-      int phys_page = pageTable[vpn_].physicalPage;
-      int offset = virt_addr % PageSize;
-      machine->mainMemory[offset+phys_page*PageSize] = c;
+      //int virt_addr = i + vaddr;
+      //int vpn_ = virt_addr/PageSize;
+      //int phys_page = pageTable[vpn].physicalPage;
+      //int offset = virt_addr % PageSize;
+      machine->mainMemory[i+physPage*PageSize] = c;
     }
   }
 
+  //Actualizamos la pageTable
+  pageTable[vpn].virtualPage = vpn;
+  pageTable[vpn].physicalPage = physPage;
+  pageTable[vpn].valid = true;
+
+  DEBUG('v',"ACAAAA PageTable Actualizada, vpn: %d,  physPage %d\n", pageTable[vpn].virtualPage, pageTable[vpn].physicalPage);
+
   delete executable;
+
+  return pageTable[vpn];
 }
 
 
-//terminar
-void AddrSpace::savePageToSwap(int physPage)
+Thread * AddrSpace::savePageToSwap(int physPage)
 {
   int val;
   int vpn = coremap[physPage].vpn;
@@ -447,7 +463,8 @@ void AddrSpace::savePageToSwap(int physPage)
   int phys_sector = vpn;
   Thread *victimThread = coremap[physPage].thread;
   ///////////////////////Pasamos la pagina victima a swap
- 
+
+  //DEBUG('v', "Hilo Victima: %p %p\n", victimThread, victimThread->space);
 
   for(int i = 0; i < PageSize; i++) {
     int virt_addr = i + vaddrMem;
@@ -463,11 +480,17 @@ void AddrSpace::savePageToSwap(int physPage)
     write(swapD, &c, 1);
   }
 
-  //marcar en el proceso correspondiente que vpn esta en swap
+  //marcar en el proceso correspondiente que la página esta en swap
   victimThread->space->toSwap(vpn);
+
+  //actualizo el coremap
+  coremap[physPage].vpn = -1;
+  coremap[physPage].thread = NULL;
   
   //marco como libre la pagina fisica
   bitMap->Clear(physPage);
+  
+  return victimThread;
 }
 
 TranslationEntry AddrSpace::loadPageFromSwap(int vpn, int physPage)
@@ -478,7 +501,7 @@ TranslationEntry AddrSpace::loadPageFromSwap(int vpn, int physPage)
   ///////////////////////Pasamos a memoria la pagina que necesitamos
   
 
-  printf("Se carga página desde Swap con vpn %d y physPage %d\n", vpn, physPage);
+  //printf("Se carga página desde Swap con vpn %d y physPage %d\n", vpn, physPage);
   for(int i = 0; i < PageSize; i++) {
     char c;
     ASSERT(lseek(swapDesc, i+phys_sector*PageSize, SEEK_SET) >= 0)
@@ -512,11 +535,22 @@ void AddrSpace::incIndex()
 
 int AddrSpace::getSwapDescriptor()
 {
+  //DEBUG('v', "valor del swapDesc: %d\n", swapDesc);
   return swapDesc;
 }
 
 void AddrSpace::toSwap(int vpn)
 {
-  pageTable[vpn].valid = false; 
+  pageTable[vpn].valid = false;
+  pageTable[vpn].physicalPage = -1;
 }
   
+void AddrSpace::print()
+{
+  for (int j = 0; j < numPages; j++) {
+    printf("PAGE vpn: %d\n", pageTable[j].virtualPage);
+    printf("PAGE phys: %d\n", pageTable[j].physicalPage);
+    printf("PAGE valid: %d\n", pageTable[j].valid);
+    printf("\n");
+  }
+}

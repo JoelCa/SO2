@@ -64,9 +64,9 @@ Machine::Machine(bool debug)
 #ifdef USE_TLB
     tlb = new TranslationEntry[TLBSize];
     for (i = 0; i < TLBSize; i++) {
-      tlb[i].valid = false;
       tlb[i].virtualPage = -1;
       tlb[i].physicalPage = -1;
+      tlb[i].valid = false;
       tlb[i].readOnly = false;
       tlb[i].use = false;
       tlb[i].dirty = false;

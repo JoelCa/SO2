@@ -30,6 +30,8 @@
 #define UserStackSize		1024 	// increase this as necessary!
 
 
+class Thread;
+
 class SwapMap {
  public:
   int virtualPage;
@@ -61,14 +63,16 @@ class AddrSpace {
   int getNumPages();
 
   //Agregado para el ejerc. 3 (plancha 4)
-  void loadPageFromBin(int vpn);
+  TranslationEntry loadPageFromBin(int vpn);
 
   //Agregado para el ejerc. 4 (plancha 4)
   TranslationEntry loadPageFromSwap(int vpn, int physPage);
-  void savePageToSwap(int vpn);
+  Thread *savePageToSwap(int vpn);
   //void setASID(int value) {asid = value; };
   int getSwapDescriptor();
   void toSwap(int vpn);
+
+  void print();
 
   static int ASID;
   static int victimIndex;

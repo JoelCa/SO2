@@ -295,6 +295,13 @@ void syscallExec()
 }
 
 
+/*void checkTLB()
+{
+  for(int i = 0; i < TLBSize; i++) {
+    
+  }
+  }*/
+
 //Observación:
 //-Si NO se usa SWAP <-> todas las páginas estan en memoria
 void pageFaultException()
@@ -305,53 +312,72 @@ void pageFaultException()
   unsigned vpn2 = vpn;
   int physPage = bitMap->Find();
   TranslationEntry entry;
+  Thread *t;
+  
+  DEBUG('v', "\nLos datos son vpn %d, vaddr %d, index %d\n", vpn, vaddr, index);
 
-  DEBUG('v', "Los datos en exception.cc es %d, %d, %d\n", vpn, vaddr, PageSize);
-
-  //esta bien este if?
-  if(vpn < currentThread->space->getNumPages()) {
-#ifdef USE_DEMAND_LOADING
-    if(currentThread->space->getEntry(vpn).virtualPage == -1) {
-      currentThread->space->loadPageFromBin(vpn);
-    }
-    else {
-      DEBUG('v', "pagina ya cargada %d\n", vpn);
-    }
-#endif
+  if((vpn < currentThread->space->getNumPages()) && (vpn >= 0)) {
 
     entry = currentThread->space->getEntry(vpn);
 
+#ifdef USE_DEMAND_LOADING
+    if(entry.virtualPage == -1) { //la página NO está en memoria
+      
+      entry = currentThread->space->loadPageFromBin(vpn);
+      DEBUG('v', "La pagina con vpn %d fue cargada del binario\n", vpn);
+
+    }
+#endif
+
+    //esta bien?
+    //Puede la página estar en el binario, y en la TLB?
 #ifdef USE_TLB
-    if(machine->tlb[index].valid)
+    if(machine->tlb[index].valid) {
       currentThread->space->putEntry(machine->tlb[index]);
+      DEBUG('v', "La pagina con vpn %d fue actualizada por la TLB\n", vpn);
+    }
 #endif
 
 #if defined(USE_TLB) && !defined(USE_SWAP)
     machine->tlb[index] = entry; // cargamos en la TLB
+    //DEBUG('v',"TLB Actualizada, vpn: %d,  physPage %d\n", machine->tlb[index].virtualPage, machine->tlb[index].physicalPage);
     index = (index + 1) % TLBSize;
+    DEBUG('v', "La pagina con vpn %d fue cargada en la TLB\n", vpn);
+
     return ;
 #endif
 
 #ifdef USE_SWAP
     if(entry.valid) { //la página está en memoria
+      //DEBUG('v', "Se carga en TLB %d (PAG. EN MEMORIA): physPage %d, vpn %d, y valid %d\n", index, entry.physicalPage, entry.virtualPage, entry.valid);
       machine->tlb[index] = entry; // cargamos en la TLB
       index = (index + 1) % TLBSize;
       return ;
     }
 
-    if(physPage >= 0)
+    if(physPage >= 0) {
       currentThread->space->loadPageFromSwap(vpn, physPage);
+      //DEBUG('v', "Hay espacio en la página física %d\n", physPage);
+    }
     else {
       physPage = currentThread->space->victimIndex;
-      //printf("el victimIndex %d\n", physPage);
-      currentThread->space->savePageToSwap(physPage);
+      //DEBUG('v', "NO hay espacio en la página física, la página victima es %d\n", physPage);
+      if((t = currentThread->space->savePageToSwap(physPage)) == currentThread) {
+        //Actualizamos la TLB
+        for(int i =0; i < TLBSize; i++)
+          if(machine->tlb[i].physicalPage == physPage) {
+            //DEBUG('v', "TLB actualizada al elegir página víctima\n");
+            machine->tlb[i].valid = false;
+            machine->tlb[i].physicalPage = -1;
+          }
+      }
       entry = currentThread->space->loadPageFromSwap(vpn, physPage);
       currentThread->space->incIndex();
     }
 #endif
 
 #ifdef USE_TLB
-    //printf("el physPage cargado %d\n", physPage);
+    //DEBUG('v', "Se carga en TLB %d: physPage %d, vpn %d, y valid %d\n\n", index, entry.physicalPage, entry.virtualPage, entry.valid);
     machine->tlb[index] = entry;
     // machine->tlb[index].valid = true;
     // machine->tlb[index].virtualPage = vpn;
@@ -363,8 +389,10 @@ void pageFaultException()
 #endif
 
   }
-  else
+  else {
     printf("VPN: %d\nTamaño de la tabla de paginación:%d\n", vpn2, currentThread->space->getNumPages());
+    ASSERT(false);
+  }
 }
 
 void
