@@ -241,7 +241,7 @@ void syscallJoin()
   Thread *t;
 
   if((t = searchThread(pid)) != NULL) {
-    printf("el thread %p hace Join\n", t);
+    //printf("el thread %p hace Join\n", t);
     t->Join();
     status = t->getMsj();
     DEBUG('u', "Join: el retorno del hijo es %d\n", status);
