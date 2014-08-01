@@ -49,7 +49,7 @@ Machine *machine;	// user program memory and registers
 //Agregados para el ejerc. 2 (plancha 3)
 SynchConsole *synchConsole;
 BitMap *bitMap;
-CoreMap *coremap = new CoreMap[NumPhysPages];
+CoreMapEntry *coremap = new CoreMapEntry[NumPhysPages];
 
 #endif
 
@@ -113,9 +113,10 @@ Initialize(int argc, char **argv)
 
     //Agregado para el ejercicio 4 (Plancha 4), inicializamos el coremap
     for(int i = 0; i < NumPhysPages; i++) {
-      coremap[i].physPage = i; //innecesario
       coremap[i].vpn = -1;
       coremap[i].thread = NULL;
+      coremap[i].use = false;
+      coremap[i].dirty = false;
     }
 
 

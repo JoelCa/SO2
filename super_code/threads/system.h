@@ -41,7 +41,7 @@ extern SynchConsole *synchConsole;
 extern BitMap *bitMap;
 
 #include "coremap.h"
-extern CoreMap *coremap;
+extern CoreMapEntry *coremap;
 #endif
 
 #ifdef FILESYS_NEEDED 		// FILESYS or FILESYS_STUB 

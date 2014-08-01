@@ -146,7 +146,7 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
   if ((swapDesc = open(swapName, O_CREAT | O_RDWR, S_IRWXU)) < 0) {
     perror("open");
   }
-  DEBUG('v', "swapDesc de %s: %d\n", swapName, swapDesc);
+  DEBUG('q', "swapDesc de %s: %d\n", swapName, swapDesc);
 
   if(useSwap) {
     for(int i = limitInMem; i < numPages; i++) {
@@ -384,10 +384,10 @@ int AddrSpace::getNumPages()
 
 TranslationEntry AddrSpace::loadPageFromBin(int vpn)
 {
-  int physPage = bitMap->Find();
+  int physPage;
   int fileAddr;
   int vaddr, virt_addr;
-  int lim, aux = -1, lim2;
+  int lim, aux, lim2;
   NoffHeader noffH;
 
   OpenFile *executable = fileSystem->Open(fileName);
@@ -398,14 +398,12 @@ TranslationEntry AddrSpace::loadPageFromBin(int vpn)
     SwapHeader(&noffH);
   ASSERT(noffH.noffMagic == NOFFMAGIC);
 
-  
-  ASSERT(physPage >=0);
-
-  bzero(&(machine->mainMemory[physPage*PageSize]), PageSize);
-
   vaddr = vpn * PageSize;
 
-  DEBUG('z', "ENTRO\n");
+  if((physPage = bitMap->Find()) < 0)
+    DEBUG('v', "No hay espacio\n");
+
+  bzero(&(machine->mainMemory[physPage*PageSize]), PageSize);
 
   if( (noffH.code.virtualAddr <= vaddr) && (vaddr < noffH.code.virtualAddr + noffH.code.size) ) {
     fileAddr = noffH.code.inFileAddr + (vaddr - noffH.code.virtualAddr);
@@ -421,39 +419,41 @@ TranslationEntry AddrSpace::loadPageFromBin(int vpn)
   else {
     DEBUG('v',"La dirección virtual %d NO corresponde al binario: %d\n", vaddr);
     //Actualizamos la pageTable
-    pageTable[vpn].virtualPage = vpn;
-    pageTable[vpn].physicalPage = physPage;
-    pageTable[vpn].valid = true;
+    if(pageTable[vpn].valid == false) {
+      pageTable[vpn].virtualPage = vpn;
+      pageTable[vpn].physicalPage = physPage;
+      pageTable[vpn].valid = true;
+    }
+    else
+      bitMap->Clear(physPage); //porque no usamos la página y al hacer find ya la marca como utilizada
 
     delete executable;
 
     return pageTable[vpn];
   }
 
-  if(aux != -1) {
+  lim = (PageSize <= aux) ? PageSize : aux;
 
-    lim = (PageSize <= aux) ? PageSize : aux;
-
-    /*DEBUG('v', "el inicio del code: %d\n", noffH.code.inFileAddr);
+  /*DEBUG('v', "el inicio del code: %d\n", noffH.code.inFileAddr);
     DEBUG('v', "el size del code: %d\n", noffH.code.size);
     DEBUG('v', "el virtualAddr del code: %d\n", noffH.code.virtualAddr);
     DEBUG('v', "el inicio del data: %d\n", noffH.initData.inFileAddr);
     DEBUG('v', "el size del data: %d\n", noffH.initData.size);
     DEBUG('v', "el virtualAddr del data: %d\n", noffH.initData.virtualAddr);*/
 
-    DEBUG('z',"La página %d con vaddr %d, fileAddr %d, lim %d, será cargada desde el binario\n\n", vpn, vaddr, fileAddr, lim);
+  DEBUG('z',"La página %d con vaddr %d, fileAddr %d, lim %d, será cargada desde el binario\n\n", vpn, vaddr, fileAddr, lim);
 
-    for(int i = 0; i < lim; i++) {
-      char c;
-      executable->ReadAt(&c, 1, fileAddr + i);
-      virt_addr = i + vaddr;
-      //int vpn_ = virt_addr/PageSize;
-      //int phys_page = pageTable[vpn].physicalPage;
-      int offset = virt_addr % PageSize;
-      machine->mainMemory[offset+physPage*PageSize] = c;
-      DEBUG('z', "El fileAddr %d, virtualAddr %d, el vpn %d, offset %d, physPage %d \n", fileAddr + i, virt_addr, vpn, offset, physPage);
-    }
+  for(int i = 0; i < lim; i++) {
+    char c;
+    executable->ReadAt(&c, 1, fileAddr + i);
+    virt_addr = i + vaddr;
+    //int vpn_ = virt_addr/PageSize;
+    //int phys_page = pageTable[vpn].physicalPage;
+    int offset = virt_addr % PageSize;
+    machine->mainMemory[offset+physPage*PageSize] = c;
+    DEBUG('z', "El fileAddr %d, virtualAddr %d, el vpn %d, offset %d, physPage %d \n", fileAddr + i, virt_addr, vpn, offset, physPage);
   }
+
 
   vaddr = ++virt_addr;
 
@@ -487,7 +487,7 @@ TranslationEntry AddrSpace::loadPageFromBin(int vpn)
 
 Thread * AddrSpace::savePageToSwap(int physPage)
 {
-  int val;
+  int val, swapD;
   int vpn = coremap[physPage].vpn;
   int vaddrMem = vpn * PageSize;
   //Sector del swap
@@ -497,12 +497,13 @@ Thread * AddrSpace::savePageToSwap(int physPage)
 
   //DEBUG('v', "Hilo Victima: %p %p\n", victimThread, victimThread->space);
 
+  swapD = victimThread->space->getSwapDescriptor();  
+
   for(int i = 0; i < PageSize; i++) {
     int virt_addr = i + vaddrMem;
     int offset = virt_addr % PageSize;
     char c = machine->mainMemory[offset+physPage*PageSize]; // puedo poner i en vez de offset?
 
-    int swapD = victimThread->space->getSwapDescriptor();
     if((val = lseek(swapD, offset+phys_sector*PageSize, SEEK_SET)) < 0) {
       perror("lseek");
       printf("error: lseek %d %d %d\n", val, offset+phys_sector*PageSize,swapD);
@@ -566,7 +567,7 @@ void AddrSpace::incIndex()
 
 int AddrSpace::getSwapDescriptor()
 {
-  //DEBUG('v', "valor del swapDesc: %d\n", swapDesc);
+  //DEBUG('q', "valor\n");
   return swapDesc;
 }
 

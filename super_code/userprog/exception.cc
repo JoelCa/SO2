@@ -314,7 +314,7 @@ void pageFaultException()
   TranslationEntry entry;
   Thread *t;
   
-  DEBUG('v', "\nLos datos son vpn %d, vaddr %d, index %d\n", vpn, vaddr, index);
+  //DEBUG('v', "\nLos datos son vpn %d, vaddr %d, index %d\n", vpn, vaddr, index);
 
   if((vpn < currentThread->space->getNumPages()) && (vpn >= 0)) {
 
@@ -349,7 +349,7 @@ void pageFaultException()
 
 #ifdef USE_SWAP
     if(entry.valid) { //la página está en memoria
-      //DEBUG('v', "Se carga en TLB %d (PAG. EN MEMORIA): physPage %d, vpn %d, y valid %d\n", index, entry.physicalPage, entry.virtualPage, entry.valid);
+      DEBUG('v', "Se carga en TLB %d (PAG. EN MEMORIA): physPage %d, vpn %d, y valid %d\n", index, entry.physicalPage, entry.virtualPage, entry.valid);
       machine->tlb[index] = entry; // cargamos en la TLB
       index = (index + 1) % TLBSize;
       return ;
@@ -357,16 +357,16 @@ void pageFaultException()
 
     if(physPage >= 0) {
       currentThread->space->loadPageFromSwap(vpn, physPage);
-      //DEBUG('v', "Hay espacio en la página física %d\n", physPage);
+      DEBUG('v', "Hay espacio: página física %d\n", physPage);
     }
     else {
       physPage = currentThread->space->victimIndex;
-      //DEBUG('v', "NO hay espacio en la página física, la página victima es %d\n", physPage);
+      DEBUG('v', "NO hay espacio: la página victima es %d\n", physPage);
       if((t = currentThread->space->savePageToSwap(physPage)) == currentThread) {
         //Actualizamos la TLB
         for(int i =0; i < TLBSize; i++)
           if(machine->tlb[i].physicalPage == physPage) {
-            //DEBUG('v', "TLB actualizada al elegir página víctima\n");
+            DEBUG('v', "TLB actualizada al elegir página víctima\n");
             machine->tlb[i].valid = false;
             machine->tlb[i].physicalPage = -1;
           }
@@ -377,7 +377,7 @@ void pageFaultException()
 #endif
 
 #ifdef USE_TLB
-    //DEBUG('v', "Se carga en TLB %d: physPage %d, vpn %d, y valid %d\n\n", index, entry.physicalPage, entry.virtualPage, entry.valid);
+    DEBUG('v', "Se carga en TLB %d: physPage %d, vpn %d, y valid %d\n\n", index, entry.physicalPage, entry.virtualPage, entry.valid);
     machine->tlb[index] = entry;
     // machine->tlb[index].valid = true;
     // machine->tlb[index].virtualPage = vpn;
