@@ -20,11 +20,7 @@
 #include "noff.h"
 
 //Agregado para el ejercicio 4 (plancha 4)
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-
+#include "openfile.h"
 #include "bitmap.h"
 
 #define UserStackSize		1024 	// increase this as necessary!
@@ -69,7 +65,7 @@ class AddrSpace {
   TranslationEntry loadPageFromSwap(int vpn, int physPage);
   Thread *savePageToSwap(int vpn);
   //void setASID(int value) {asid = value; };
-  int getSwapDescriptor();
+  OpenFile *getSwap();
   void toSwap(int vpn);
 
   void print();
@@ -92,7 +88,8 @@ class AddrSpace {
   char *fileName;
 
   //Agregado para el ejerc. 4 (plancha 4)
-  int swapDesc;
+  char swapName[11];
+  OpenFile *swap;
   int limitInMem;
   BitMap *swapBitMap;
   

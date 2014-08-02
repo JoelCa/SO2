@@ -310,7 +310,7 @@ void pageFaultException()
   unsigned vaddr = machine->ReadRegister(BadVAddrReg); // la direccion virtual que genero el fallo esta en el registro BadVAddrReg
   unsigned vpn = vaddr/PageSize; //ver si esta en rango, y si es de solo lectura o escritura
   unsigned vpn2 = vpn;
-  int physPage = bitMap->Find();
+  int physPage;
   TranslationEntry entry;
   Thread *t;
   
@@ -348,6 +348,7 @@ void pageFaultException()
 #endif
 
 #ifdef USE_SWAP
+
     if(entry.valid) { //la página está en memoria
       DEBUG('v', "Se carga en TLB %d (PAG. EN MEMORIA): physPage %d, vpn %d, y valid %d\n", index, entry.physicalPage, entry.virtualPage, entry.valid);
       machine->tlb[index] = entry; // cargamos en la TLB
@@ -355,12 +356,16 @@ void pageFaultException()
       return ;
     }
 
+    //bitMap->Print();
+    physPage = bitMap->Find();
+
     if(physPage >= 0) {
-      currentThread->space->loadPageFromSwap(vpn, physPage);
+      entry = currentThread->space->loadPageFromSwap(vpn, physPage);
       DEBUG('v', "Hay espacio: página física %d\n", physPage);
     }
     else {
       physPage = currentThread->space->victimIndex;
+      //bitMap->Print();
       DEBUG('v', "NO hay espacio: la página victima es %d\n", physPage);
       if((t = currentThread->space->savePageToSwap(physPage)) == currentThread) {
         //Actualizamos la TLB

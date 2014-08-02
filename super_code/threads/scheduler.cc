@@ -143,7 +143,11 @@ Scheduler::Run (Thread *nextThread)
     // before now (for example, in Thread::Finish()), because up to this
     // point, we were still running on the old thread's stack!
     if (threadToBeDestroyed != NULL) {
-      //printf("el thread a borrar: %p\n", threadToBeDestroyed);
+#ifdef USER_PROGRAM
+      DEBUG('v', "Nombre del thread a borrar: ");
+      threadToBeDestroyed->Print();
+      delete threadToBeDestroyed->space;
+#endif
         delete threadToBeDestroyed;
 	threadToBeDestroyed = NULL;
     }
