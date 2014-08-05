@@ -68,6 +68,10 @@ class AddrSpace {
   OpenFile *getSwap();
   void toSwap(int vpn);
 
+  void bitsOff();
+  void offReferenceBit(int physPage);
+
+
   void print();
 
   static int ASID;
@@ -91,8 +95,6 @@ class AddrSpace {
   char swapName[11];
   OpenFile *swap;
   int limitInMem;
-  BitMap *swapBitMap;
   
-  //NoffHeader noffH;
 };
 #endif // ADDRSPACE_H

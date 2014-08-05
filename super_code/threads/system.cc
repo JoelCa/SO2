@@ -31,6 +31,8 @@ Statistics *stats;			// performance metrics
 Timer *timer;				// the hardware timer device,
 					// for invoking context switches
 
+Timer *SecondChanceTimer;
+
 // 2007, Jose Miguel Santos Espino
 PreemptiveScheduler* preemptiveScheduler = NULL;
 const long long DEFAULT_TIME_SLICE = 50000;
@@ -85,6 +87,20 @@ TimerInterruptHandler(void* dummy)
     if (interrupt->getStatus() != IdleMode)
 	interrupt->YieldOnReturn();
 }
+
+
+static void
+referenceBitsOff(void* arg)
+{
+
+#ifdef USER_PROGRAM
+  currentThread->space->bitsOff();
+#endif
+
+  return ;
+}
+
+
 
 //----------------------------------------------------------------------
 // Initialize
@@ -183,6 +199,10 @@ Initialize(int argc, char **argv)
 
     //Agregado para el ejerc. 3 (plancha 3)
     timer = new Timer(TimerInterruptHandler, 0, randomYield);
+
+    //Agregado para el ejerc. 4 (Plancha 4)
+    SecondChanceTimer = new Timer(referenceBitsOff, 0, true);
+
 
     threadToBeDestroyed = NULL;
 

@@ -239,10 +239,11 @@ AddrSpace::~AddrSpace()
       DEBUG('v', "Se libera el marco %d\n", physPage);
       coremap[physPage].vpn = -1;
       coremap[physPage].thread = NULL;
+      coremap[physPage].use = false;
+      coremap[physPage].dirty = false;
     }
   }
   delete [] pageTable;
-  delete swapBitMap;
   fileSystem->Remove(swapName);
 }
 
@@ -520,7 +521,9 @@ Thread * AddrSpace::savePageToSwap(int physPage)
   //actualizo el coremap
   coremap[physPage].vpn = -1;
   coremap[physPage].thread = NULL;
-  
+  coremap[physPage].use = false;
+  coremap[physPage].dirty = false;
+
   //marco como libre la pagina fisica
   bitMap->Clear(physPage);
   
@@ -576,6 +579,31 @@ void AddrSpace::toSwap(int vpn)
   pageTable[vpn].valid = false;
   pageTable[vpn].physicalPage = -1;
 }
+
+
+void AddrSpace::bitsOff()
+{
+
+  //DEBUG('v', "ENTRO\n");
+  for(int i = 0; i < TLBSize; i++)
+    machine->tlb[i].use = false;
+  
+  for(int i = 0; i < numPages; i++)
+    pageTable[i].use = false;
+  
+  for(int i = 0; i < NumPhysPages; i++)
+    coremap[i].use = false;
+}
+
+void AddrSpace::offReferenceBit(int physPage)
+{
+  for(int i = 0; i < TLBSize; i++)
+    if(pageTable[i].physicalPage == physPage) {
+      pageTable[i].use = false;
+      break;
+    }
+}
+
   
 void AddrSpace::print()
 {

@@ -31,6 +31,9 @@
 
 #define MAXLENGTH 32
 
+
+int indexSC;
+
 void readMem(int addr, int size, int *value)
 {
   if(!machine->ReadMem(addr,size,value))
@@ -295,12 +298,75 @@ void syscallExec()
 }
 
 
-/*void checkTLB()
+void printTLB()
 {
+  printf("--------->La TLB: inicio\n");
   for(int i = 0; i < TLBSize; i++) {
-    
+    printf("physPage: %d, vpn: %d, valid: %d, use: %d, dirty: %d, readOnly: %d\n", machine->tlb[i].physicalPage,
+           machine->tlb[i].virtualPage, machine->tlb[i].valid, machine->tlb[i].use, machine->tlb[i].dirty,
+           machine->tlb[i].readOnly);
   }
-  }*/
+  printf("--------->La TLB: fin\n");
+}
+
+void printCoremap()
+{
+  printf("--------->La Coremap: inicio\n");
+  for(int i = 0; i < NumPhysPages; i++) {
+    printf("physPage: %d, vpn: %d, use: %d, dirty: %d\n", i, coremap[i].vpn, coremap[i].use, coremap[i].dirty);
+  }
+  printf("--------->La Coremap: fin\n");
+}
+
+int SecondChance()
+{
+  int aux[3] = {-1}, i = indexSC, j = 0, k; 
+  Thread *t;
+
+  //printf("antes:\n");
+  //printCoremap();
+
+  while(j != NumPhysPages) {
+    if( !coremap[i].use && !coremap[i].dirty ) {
+      //printCoremap();
+      indexSC++;
+      return i;
+    }
+    else if( !coremap[i].use && coremap[i].dirty && (aux[0] == -1))
+      aux[0] = i;
+    else if( coremap[i].use && !coremap[i].dirty && (aux[1] == -1))
+      aux[1] = i;
+    else if ( !coremap[i].use && !coremap[i].dirty && (aux[2] == -1))
+      aux[2] = i;
+
+    if(coremap[i].use) {
+      coremap[i].use = false; //apagamos el bit de referencia
+      
+      //Esta bien apagar el bit de referencia?
+      t = coremap[i].thread;
+      t->space->offReferenceBit(i);
+      if(t == currentThread) {        
+        for(k = 0; k < TLBSize; k++)
+          if(machine->tlb[k].physicalPage == i) {
+            machine->tlb[k].use = false;
+            break;
+          }
+      }
+    }
+
+    i = (i+1) % NumPhysPages;
+    j++;
+  }
+
+  for(i = 0; i < 3; i++) {
+    if(aux[i] > 0) {
+      indexSC++;
+      //printCoremap();
+      return aux[i];
+    }
+  }
+  return -1;
+}
 
 //Observación:
 //-Si NO se usa SWAP <-> todas las páginas estan en memoria
@@ -316,6 +382,8 @@ void pageFaultException()
   
   //DEBUG('v', "\nLos datos son vpn %d, vaddr %d, index %d\n", vpn, vaddr, index);
 
+  //printTLB();
+  
   if((vpn < currentThread->space->getNumPages()) && (vpn >= 0)) {
 
     entry = currentThread->space->getEntry(vpn);
@@ -325,12 +393,9 @@ void pageFaultException()
       
       entry = currentThread->space->loadPageFromBin(vpn);
       DEBUG('v', "La pagina con vpn %d fue cargada del binario\n", vpn);
-
     }
 #endif
 
-    //esta bien?
-    //Puede la página estar en el binario, y en la TLB?
 #ifdef USE_TLB
     if(machine->tlb[index].valid) {
       currentThread->space->putEntry(machine->tlb[index]);
@@ -345,7 +410,7 @@ void pageFaultException()
     DEBUG('v', "La pagina con vpn %d fue cargada en la TLB\n", vpn);
 
     return ;
-#endif
+ #endif
 
 #ifdef USE_SWAP
 
@@ -364,7 +429,10 @@ void pageFaultException()
       DEBUG('v', "Hay espacio: página física %d\n", physPage);
     }
     else {
-      physPage = currentThread->space->victimIndex;
+      //physPage = currentThread->space->victimIndex;
+
+      physPage = SecondChance();
+
       //bitMap->Print();
       DEBUG('v', "NO hay espacio: la página victima es %d\n", physPage);
       if((t = currentThread->space->savePageToSwap(physPage)) == currentThread) {
@@ -372,24 +440,24 @@ void pageFaultException()
         for(int i =0; i < TLBSize; i++)
           if(machine->tlb[i].physicalPage == physPage) {
             DEBUG('v', "TLB actualizada al elegir página víctima\n");
-            machine->tlb[i].valid = false;
             machine->tlb[i].physicalPage = -1;
+            machine->tlb[i].valid = false;
+            machine->tlb[i].use = false;
+            machine->tlb[i].dirty = false;
+            machine->tlb[i].readOnly = false;
+            break;
           }
       }
       entry = currentThread->space->loadPageFromSwap(vpn, physPage);
-      currentThread->space->incIndex();
+      
+      //currentThread->space->incIndex();
     }
 #endif
 
 #ifdef USE_TLB
     DEBUG('v', "Se carga en TLB %d: physPage %d, vpn %d, y valid %d\n\n", index, entry.physicalPage, entry.virtualPage, entry.valid);
+
     machine->tlb[index] = entry;
-    // machine->tlb[index].valid = true;
-    // machine->tlb[index].virtualPage = vpn;
-    // machine->tlb[index].physicalPage = physPage;
-    // machine->tlb[index].readOnly = false;
-    // machine->tlb[index].use = true;
-    // machine->tlb[index].dirty = false;   
     index = (index + 1) % TLBSize; //index es global inicializada en cero      
 #endif
 

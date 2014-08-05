@@ -253,6 +253,12 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
     entry->use = true;		// set the use, dirty bits
     if (writing)
 	entry->dirty = true;
+
+    //Agregado para el ejercicio 4 (Plancha 4)
+    coremap[pageFrame].use = true;
+    if (writing)
+	coremap[pageFrame].dirty = true;
+
     *physAddr = pageFrame * PageSize + offset;
     ASSERT((*physAddr >= 0) && ((*physAddr + size) <= MemorySize));
     DEBUG('a', "phys addr = 0x%x\n", *physAddr);
