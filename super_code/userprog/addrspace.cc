@@ -21,7 +21,7 @@
 
 
 int AddrSpace::victimIndex = 0;
-int AddrSpace::ASID = 0;
+int AddrSpace::SWAPID = 0;
 
 //----------------------------------------------------------------------
 // SwapHeader
@@ -137,8 +137,8 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
   }
 
 #ifdef USE_SWAP
-  sprintf(swapName, "SWAP.%d", ASID);
-  ASID++;
+  sprintf(swapName, "SWAP.%d", SWAPID);
+  SWAPID++;
   
   if(!fileSystem->Create(swapName, 2048)) //esta bien el tamaño?
     DEBUG('v', "Error al crear el archivo %s\n", swapName);
@@ -239,10 +239,11 @@ AddrSpace::~AddrSpace()
       DEBUG('v', "Se libera el marco %d\n", physPage);
       coremap[physPage].vpn = -1;
       coremap[physPage].thread = NULL;
+      coremap[physPage].use = false;
+      coremap[physPage].dirty = false;
     }
   }
   delete [] pageTable;
-  delete swapBitMap;
   fileSystem->Remove(swapName);
 }
 
@@ -485,7 +486,6 @@ TranslationEntry AddrSpace::loadPageFromBin(int vpn)
   return pageTable[vpn];
 }
 
-
 //Pasamos la pagina victima a swap
 Thread * AddrSpace::savePageToSwap(int physPage)
 {
@@ -498,9 +498,9 @@ Thread * AddrSpace::savePageToSwap(int physPage)
   Thread *victimThread = coremap[physPage].thread;
   char buff[PageSize] = {0}; //esta bien inicializarla en cero?
 
-
   if(victimThread == NULL) {
-    printf("Error: el marco %d está libre, no deberia existir una víctima\n", physPage);
+    //printf("Lo que genera el error: %p %d\n", victimThread, physPage);
+     printf("Error: el marco %d está libre, no deberia existir una víctima\n", physPage);
     ASSERT(false);
   }
 
@@ -520,7 +520,9 @@ Thread * AddrSpace::savePageToSwap(int physPage)
   //actualizo el coremap
   coremap[physPage].vpn = -1;
   coremap[physPage].thread = NULL;
-  
+  coremap[physPage].use = false;
+  coremap[physPage].dirty = false;
+
   //marco como libre la pagina fisica
   bitMap->Clear(physPage);
   
@@ -575,6 +577,30 @@ void AddrSpace::toSwap(int vpn)
 {
   pageTable[vpn].valid = false;
   pageTable[vpn].physicalPage = -1;
+}
+
+
+void AddrSpace::bitsOff()
+{
+
+  //DEBUG('v', "ENTRO\n");
+  for(int i = 0; i < TLBSize; i++)
+    machine->tlb[i].use = false;
+  
+  for(int i = 0; i < numPages; i++)
+    pageTable[i].use = false;
+  
+  for(int i = 0; i < NumPhysPages; i++)
+    coremap[i].use = false;
+}
+
+void AddrSpace::offReferenceBit(int physPage)
+{
+  for(int i = 0; i < TLBSize; i++)
+    if(pageTable[i].physicalPage == physPage) {
+      pageTable[i].use = false;
+      break;
+    }
 }
   
 void AddrSpace::print()
