@@ -602,6 +602,10 @@ void AddrSpace::offReferenceBit(int physPage)
       break;
     }
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 76961170b77a3c0e281b586de9e531f3cc02131e
   
 void AddrSpace::print()
 {

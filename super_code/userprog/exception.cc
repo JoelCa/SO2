@@ -313,7 +313,11 @@ void printCoremap()
 {
   printf("--------->La Coremap: inicio\n");
   for(int i = 0; i < NumPhysPages; i++) {
+<<<<<<< HEAD
     printf("physPage: %d, vpn: %d, use: %d, dirty: %d, thread: %p\n", i, coremap[i].vpn, coremap[i].use, coremap[i].dirty, coremap[i].thread);
+=======
+    printf("physPage: %d, vpn: %d, use: %d, dirty: %d\n", i, coremap[i].vpn, coremap[i].use, coremap[i].dirty);
+>>>>>>> 76961170b77a3c0e281b586de9e531f3cc02131e
   }
   printf("--------->La Coremap: fin\n");
 }
@@ -329,7 +333,11 @@ int SecondChance()
   while(j != NumPhysPages) {
     if( !coremap[i].use && !coremap[i].dirty ) {
       //printCoremap();
+<<<<<<< HEAD
       indexSC = (indexSC + 1) % NumPhysPages;
+=======
+      indexSC++;
+>>>>>>> 76961170b77a3c0e281b586de9e531f3cc02131e
       return i;
     }
     else if( !coremap[i].use && coremap[i].dirty && (aux[0] == -1))
@@ -359,6 +367,7 @@ int SecondChance()
   }
 
   for(i = 0; i < 3; i++) {
+<<<<<<< HEAD
     if(aux[i] >= 0) {
       indexSC = (indexSC + 1) % NumPhysPages;
       printCoremap();
@@ -366,6 +375,15 @@ int SecondChance()
     }
   }
   ASSERT(false);
+=======
+    if(aux[i] > 0) {
+      indexSC++;
+      //printCoremap();
+      return aux[i];
+    }
+  }
+  return -1;
+>>>>>>> 76961170b77a3c0e281b586de9e531f3cc02131e
 }
 
 //Observación:
@@ -429,14 +447,20 @@ void pageFaultException()
       DEBUG('v', "Hay espacio: página física %d\n", physPage);
     }
     else {
+<<<<<<< HEAD
 
       //Funciona para el alg. de paginación que busca según el nº de página física.
+=======
+>>>>>>> 76961170b77a3c0e281b586de9e531f3cc02131e
       //physPage = currentThread->space->victimIndex;
 
       physPage = SecondChance();
 
+<<<<<<< HEAD
       printf("physPage: %d\n", physPage);
 
+=======
+>>>>>>> 76961170b77a3c0e281b586de9e531f3cc02131e
       //bitMap->Print();
       DEBUG('v', "NO hay espacio: la página victima es %d\n", physPage);
       if((t = currentThread->space->savePageToSwap(physPage)) == currentThread) {
