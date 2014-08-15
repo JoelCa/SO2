@@ -34,7 +34,7 @@ CPP = /lib/cpp
 INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR) -mips1
 
-all: lib/gcc-lib halt shell matmult sort filetest prueba prueba2 bash print_a cp cat
+all: lib/gcc-lib halt shell matmult sort filetest prueba prueba2 bash print_a cp cat error
 
 lib/gcc-lib:
 	ln -s `pwd`/mips-dec-ultrix42/ lib/gcc-lib
@@ -87,6 +87,12 @@ cat.o: cat.c
 cat: cat.o start.o
 	$(LD) $(LDFLAGS) start.o cat.o -o cat.coff
 	../bin/coff2noff cat.coff cat
+
+error.o: error.c
+	$(CC) $(CFLAGS) -c error.c
+error: error.o start.o
+	$(LD) $(LDFLAGS) start.o error.o -o error.coff
+	../bin/coff2noff error.coff error
 
 shell.o: shell.c
 	$(CC) $(CFLAGS) -c shell.c

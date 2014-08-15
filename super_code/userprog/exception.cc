@@ -426,6 +426,9 @@ void pageFaultException()
 
     if(physPage >= 0) {
       entry = currentThread->space->loadPageFromSwap(vpn, physPage);
+      //actualizo el coremap
+      coremap[physPage].vpn = vpn;
+      coremap[physPage].thread = currentThread;
       DEBUG('v', "Hay espacio: página física %d\n", physPage);
     }
     else {
@@ -465,8 +468,8 @@ void pageFaultException()
 
   }
   else {
-    printf("VPN: %d\nTamaño de la tabla de paginación:%d\n", vpn2, currentThread->space->getNumPages());
-    ASSERT(false);
+    printf("error: acceso invalido\n");
+    currentThread->Finish();
   }
 }
 
@@ -522,7 +525,8 @@ ExceptionHandler(ExceptionType which)
     pageFaultException();
   }
   else if(which == ReadOnlyException) { //FALTA
-    printf("exepción: ReadOnlyException\n");
+    printf("error: ReadOnlyException\n");
+    currentThread->Finish();
   }
   else {
     printf("Unexpected user mode exception %d %d\n", which, type);

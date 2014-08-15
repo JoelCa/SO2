@@ -557,11 +557,7 @@ TranslationEntry AddrSpace::loadPageFromSwap(int vpn, int physPage)
       int offset = virt_addr % PageSize;
       machine->mainMemory[offset+physPage*PageSize] = buff[i];
     }
-  }
-  //actualizo el coremap
-  coremap[physPage].vpn = vpn;
-  coremap[physPage].thread = currentThread;
-  
+  }  
   //actualizo la pageTable
   pageTable[vpn].valid = true;
   pageTable[vpn].virtualPage = vpn;
@@ -595,9 +591,12 @@ void AddrSpace::bitsOff()
 {
 
   //DEBUG('v', "ENTRO\n");
+
+#ifdef USE_TLB
   for(int i = 0; i < TLBSize; i++)
     machine->tlb[i].use = false;
-  
+#endif
+
   for(int i = 0; i < numPages; i++)
     pageTable[i].use = false;
   

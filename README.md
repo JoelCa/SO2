@@ -1,4 +1,4 @@
 Sistemas operativos II - 2014
 ===
 
-Ejemplos dados en clases
+Nachos, y ejemplos de C++, dados a principio de clases.
