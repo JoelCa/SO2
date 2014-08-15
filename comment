@@ -1,0 +1,40 @@
+1) Arreglar la TLB, problema posiciones muy altas de vpn.
+2) No cargar en memoria direcciones que no estan en el binario, rellenar con ceros.
+3) Cuando tenemos que elegir una página víctima, como avisamos al proceso que tenia esa página, que ésta fue swapeada?
+4) Se debe tener un solo archivo SWAP para todos los procesos o un archivo para cada proceso? En la práctica dice que a la vpn n le corresponde el sector n del archivo, ésto sólo prodríamos hacerlo
+con un archivo por proceso (la swap es una partición en los sistemas operativos, no se diferencia entre los procesos)
+5) En la carga inicial, cuando NO se puede cargar una pagína por falta de memoria, asumo que las paǵinas que siguen tampoco entrarán, esta bien?
+Si pude cargar N páginas al inicio, entonces N es el límite de páginas fisicas que puede usar el proceso?
+6) Teniendo un ÚNICO Swap, el espacio en swap es por lo menos, igual a lo que NO entro en la carga inicial, esta bien?
+7) Si se genera un pageFault es por que se utiliza memoria virtual?
+8) Tira errores: valgrind ./../vm/nachos -x bash
+9) No anda el ejerc. 4. Si se prueba con gdb, tira el mensaje que el vpn > nº de paginas.
+
+10) Deberiamos borrar el space del thread? Si.
+11) Donde queda la manecilla del reloj? en la siguiente primera mejor posición? Si.
+12) Esta bien crear un reloj para apagar los bits de referencia periodicamente? No es necesario.
+13) Debemos guardar a swap la pagina victima si tiene los bits (0,0)? No es necesario.
+
+Observación:
+
+- Si esta totalmente ocupada la memoria, es decir, no hay páginas libres, y un proceso nuevo intenta ejecutarse, ¿Que se deberia hacer?. ¿Hay que quitar una página a otro proceso o aguardar a que se libere?
+
+- En el ejercicio 4, hay que crear una archivo "SWAP" para cada proceso?
+
+- En cada cambio de contexto, las páginas físicas del proceso X que sale, quedan en la memoria de la máquina, se preservan.
+Cuando el proceso X termina su ejecución, se liberan sus páginas físicas.
+
+Ejercicio 4 (Paso por paso) :
+   Cuando surge un pageFault pueden darse dos casos al buscar la vpn en la tabla de paginación:
+          - el campo valid esta en true, la página está en memoria, con lo cual hay que hacer como antes
+          - el campo valid esta en false, la página está en swap, con lo que hay que obtener 2 cosas:
+            - página víctima
+            - sector correspondiente a la vpn que se necesita
+          luego, debemos realizar los siguientes cambios:
+            - hacer un find del bitMapSwap para obtener el sector libre para escribir la página víctima que se swapea
+            - averiguar a que proceso pertenece esa página
+            - escribir en swap la página
+            - escribir en memoria, en el lugar que se liberó, la página que se necesita
+            - hacer un clear de la fila que referenciaba a la página cargada
+
+- La carga por demanda, funciona con TLB. No queremos sacar la bandera USE_TLB, para ver que funciona sin TLB tambien.
