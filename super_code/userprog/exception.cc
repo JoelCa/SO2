@@ -34,16 +34,22 @@
 
 int indexSC;
 
+//Deben intentarse a lo sumo 3 veces el acceso a memória
+//Una vez para recuperarse de un PageFault, y otra para
+//modificar una página que era de solo escritura.
+
 void readMem(int addr, int size, int *value)
 {
   if(!machine->ReadMem(addr,size,value))
-    machine->ReadMem(addr,size,value);
+    if(!machine->ReadMem(addr,size,value))
+      machine->ReadMem(addr,size,value);
 }
 
 void writeMem(int addr, int size, int value)
 {
   if(!machine->WriteMem(addr,size,value))
-    machine->WriteMem(addr,size,value);
+    if(!machine->WriteMem(addr,size,value))
+      machine->WriteMem(addr,size,value);
 }
 
 
@@ -310,6 +316,7 @@ void printTLB()
 }
 
 #ifdef USE_SWAP
+
 void printCoremap()
 {
   printf("--------->La Coremap: inicio\n");
@@ -321,50 +328,42 @@ void printCoremap()
 
 int SecondChance()
 {
-  int aux[3] = {-1}, i = indexSC, j = 0, k; 
-  Thread *t;
+  int aux[3] = {-1}, victim = indexSC;
 
-  printf("antes:\n");
-  printCoremap();
+  //printf("Previo a aplicar el alg. Segunda oportunidad con índice %d\n", victim);
+  //printCoremap();
 
-  while(j != NumPhysPages) {
-    if( !coremap[i].use && !coremap[i].dirty ) {
-      printf("despues:\n");
-      printCoremap();
-      indexSC = (indexSC + 1) % NumPhysPages;
-      return i;
+  for(int j = 0; j < NumPhysPages; j++) {
+    CoreMapEntry entry = coremap[victim];
+    if(!entry.use && !entry.dirty ) {
+      indexSC = (victim + 1) % NumPhysPages;
+      return victim;
     }
-    else if( !coremap[i].use && coremap[i].dirty && (aux[0] == -1))
-      aux[0] = i;
-    else if( coremap[i].use && !coremap[i].dirty && (aux[1] == -1))
-      aux[1] = i;
-    else if ( !coremap[i].use && !coremap[i].dirty && (aux[2] == -1))
-      aux[2] = i;
+    else if( !entry.use && entry.dirty && (aux[0] == -1))
+      aux[0] = victim;
+    else if( entry.use && !entry.dirty && (aux[1] == -1))
+      aux[1] = victim;
+    else if ( !entry.use && !entry.dirty && (aux[2] == -1))
+      aux[2] = victim;
 
-    if(coremap[i].use) {
-      coremap[i].use = false; //apagamos el bit de referencia
-      
-      //Esta bien apagar el bit de referencia?
-      t = coremap[i].thread;
-      t->space->offReferenceBit(i);
+    if(entry.use) {
+      coremap[victim].use = false; //apagamos el bit de referencia en el coremap
+      Thread *t = entry.thread;
+      t->space->offReferenceBit(victim); //apagamos el bit de referencia en la PageTable
       if(t == currentThread) {        
-        for(k = 0; k < TLBSize; k++)
-          if(machine->tlb[k].physicalPage == i) {
-            machine->tlb[k].use = false;
+        for(int k = 0; k < TLBSize; k++)
+          if(machine->tlb[k].physicalPage == victim) {
+            machine->tlb[k].use = false; //apagamos el bit de referencia en la TLB
             break;
           }
       }
     }
-
-    i = (i+1) % NumPhysPages;
-    j++;
+    victim = (victim + 1) % NumPhysPages;
   }
 
-  for(i = 0; i < 3; i++) {
+  for(int i = 0; i < 3; i++) {
     if(aux[i] >= 0) {
-      indexSC = (indexSC + 1) % NumPhysPages;
-      printf("despues:\n");
-      printCoremap();
+      indexSC = (aux[i] + 1) % NumPhysPages;
       return aux[i];
     }
   }
@@ -377,7 +376,7 @@ int SecondChance()
 //-Si NO se usa SWAP <-> todas las páginas estan en memoria
 void pageFaultException()
 {
-  static int index = 0;
+  static int indexTLB = 0;
   unsigned vaddr = machine->ReadRegister(BadVAddrReg); // la direccion virtual que genero el fallo esta en el registro BadVAddrReg
   unsigned vpn = vaddr/PageSize; //ver si esta en rango, y si es de solo lectura o escritura
   unsigned vpn2 = vpn;
@@ -385,7 +384,7 @@ void pageFaultException()
   TranslationEntry entry;
   Thread *t;
   
-  //DEBUG('v', "\nLos datos son vpn %d, vaddr %d, index %d, num pages %d\n", vpn, vaddr, index, currentThread->space->getNumPages());
+  //DEBUG('v', "\nLos datos son vpn %d, vaddr %d, indexTLB %d, num pages %d\n", vpn, vaddr, indexTLB, currentThread->space->getNumPages());
 
   //printTLB();
   
@@ -402,7 +401,7 @@ void pageFaultException()
 #endif
 
 #if defined(USE_TLB) && defined(USE_SWAP)
-    TranslationEntry TLBEntry = machine->tlb[index];
+    TranslationEntry TLBEntry = machine->tlb[indexTLB];
     if(TLBEntry.valid) {
       currentThread->space->putEntry(TLBEntry);
       int physP = TLBEntry.physicalPage;
@@ -412,12 +411,10 @@ void pageFaultException()
     }
 #endif
 
-
-
 #if defined(USE_TLB) && !defined(USE_SWAP)
-    machine->tlb[index] = entry; // cargamos en la TLB
-    //DEBUG('v',"TLB Actualizada, vpn: %d,  physPage %d\n", machine->tlb[index].virtualPage, machine->tlb[index].physicalPage);
-    index = (index + 1) % TLBSize;
+    machine->tlb[indexTLB] = entry; // cargamos en la TLB
+    //DEBUG('v',"TLB Actualizada, vpn: %d,  physPage %d\n", machine->tlb[indexTLB].virtualPage, machine->tlb[indexTLB].physicalPage);
+    indexTLB = (indexTLB + 1) % TLBSize;
     DEBUG('v', "La pagina con vpn %d fue cargada en la TLB\n", vpn);
 
     return ;
@@ -426,12 +423,13 @@ void pageFaultException()
 #ifdef USE_SWAP
 
     if(entry.valid) { //la página está en memoria
-      DEBUG('v', "Se carga en TLB %d (PAG. EN MEMORIA): physPage %d, vpn %d, y valid %d\n", index, entry.physicalPage, entry.virtualPage, entry.valid);
-      machine->tlb[index] = entry; // cargamos en la TLB
+      DEBUG('v', "Se carga en TLB %d (PAG. EN MEMORIA): physPage %d, vpn %d, y valid %d\n", indexTLB, entry.physicalPage, entry.virtualPage, entry.valid);
+      machine->tlb[indexTLB] = entry; // cargamos en la TLB
       
-      coremap[entry.physicalPage].use = true;
+      //No hace falta modificar la TLB, por que se hace por hardware
+      coremap[entry.physicalPage].use = true; //Actualizamos coremap
 
-      index = (index + 1) % TLBSize;
+      indexTLB = (indexTLB + 1) % TLBSize;
 
       return ;
     }
@@ -445,7 +443,7 @@ void pageFaultException()
       DEBUG('v', "Hay espacio: página física %d\n", physPage);
     }
     else {
-      //physPage = currentThread->space->victimIndex;
+      //physPage = currentThread->space->victimIndexTLB;
 
       physPage = SecondChance();
 
@@ -453,6 +451,7 @@ void pageFaultException()
       DEBUG('v', "NO hay espacio: la página victima es %d\n", physPage);
 
       t = currentThread->space->savePageToSwap(physPage);
+
       //actualizo el coremap
       coremap[physPage].vpn = -1;
       coremap[physPage].thread = NULL;
@@ -465,6 +464,7 @@ void pageFaultException()
           if(machine->tlb[i].physicalPage == physPage) {
             DEBUG('v', "TLB actualizada al elegir página víctima\n");
             machine->tlb[i].physicalPage = -1;
+            machine->tlb[i].virtualPage = -1;
             machine->tlb[i].valid = false;
             machine->tlb[i].use = false;
             machine->tlb[i].dirty = false;
@@ -473,21 +473,24 @@ void pageFaultException()
           }
       }
       entry = currentThread->space->loadPageFromSwap(vpn, physPage);
-      //currentThread->space->incIndex();
+      //currentThread->space->incIndexTLB();
     }
 
     //actualizo el coremap
     coremap[physPage].vpn = vpn;
     coremap[physPage].thread = currentThread;
     coremap[physPage].use = true;
-      
+    coremap[physPage].dirty = false;
+
+    //printf("Luego de tratar la exepción %d\n", indexSC);
+    //printCoremap();
 #endif
 
 #ifdef USE_TLB
-    DEBUG('v', "Se carga en TLB %d: physPage %d, vpn %d, y valid %d\n\n", index, entry.physicalPage, entry.virtualPage, entry.valid);
+    DEBUG('v', "Se carga en TLB %d: physPage %d, vpn %d, y valid %d\n\n", indexTLB, entry.physicalPage, entry.virtualPage, entry.valid);
 
-    machine->tlb[index] = entry;
-    index = (index + 1) % TLBSize; //index es global inicializada en cero      
+    machine->tlb[indexTLB] = entry;
+    indexTLB = (indexTLB + 1) % TLBSize; //indexTLB es global inicializada en cero      
 #endif
 
   }
@@ -500,58 +503,44 @@ void pageFaultException()
 
 void readOnlyException() 
 {
-
   unsigned vaddr = machine->ReadRegister(BadVAddrReg); // la direccion virtual que genero el fallo esta en el registro BadVAddrReg
   unsigned vpn = vaddr/PageSize; //ver si esta en rango, y si es de solo lectura o escritura
-  int indexCoremap, indexTLB;
+  int coremapI, TLBI;
   
-  DEBUG('v', "Interrupción ReadOnly: vpn %d\n", vpn);
-
+  printf("Interrupción ReadOnly: vpn %d\n", vpn);
 
 #if defined(USE_TLB) && defined(USE_SWAP)
 
-  for(indexTLB = 0; indexTLB < TLBSize; indexTLB++) 
-    if(machine->tlb[indexTLB].virtualPage == vpn) {
-      indexCoremap = machine->tlb[indexTLB].physicalPage;
+  for(TLBI = 0; TLBI < TLBSize; TLBI++) 
+    if(machine->tlb[TLBI].virtualPage == vpn) {
+      coremapI = machine->tlb[TLBI].physicalPage;
       break;
    }
   
-  DEBUG('v', "Interrupción ReadOnly: physical page %d\n", indexCoremap);
+  DEBUG('v', "Interrupción ReadOnly: physical page %d\n", coremapI);
 
   //actualizamos el coremap
-  coremap[indexCoremap].use = true;
-  coremap[indexCoremap].dirty = true; //Cuando se produce el readOnlyException, es cuando
+  coremap[coremapI].use = true;
+  coremap[coremapI].dirty = true; //Cuando se produce el readOnlyException, es cuando
                                //se marca como dirty la pagina
 
-  //actualizamos la tlb
-  machine->tlb[indexTLB].use = true;
-  machine->tlb[indexTLB].dirty = true;
-  machine->tlb[indexTLB].readOnly = false;
+  //No hace falta modificar los bits used y dirty, por que se hace por hardware
+  machine->tlb[TLBI].readOnly = false;
 #endif
-
-/*
-#ifndef USE_SWAP
-
-  printf("error: acceso invalido\n");
-  currentThread->Finish();
-
-#endif
-*/
 
 #if !defined(USE_TLB) && defined(USE_SWAP)
 
   TranslationEntry e = currentThread->space->getEntry(vpn);
 
-  indexCoremap = e.physicalPage;
+  coremapI = e.physicalPage;
 
   //actualizamos el coremap
-  coremap[indexCoremap].use = true;
-  coremap[indexCoremap].dirty = true; //en el primer intento de escritura se produce el readOnlyException, y es cuando
-                               //se marca como dirty la pagina, en el segundo intento se modifica la pagina
+  coremap[coremapI].use = true;
+  coremap[coremapI].dirty = true; 
 
-  e.use = true;
-  e.dirty = true;
+  //No hace falta modificar los bits used y dirty, por que se hace por hardware
   e.readOnly = false;
+
   //actualizamos la pageTable
   currentThread->space->putEntry(e);
 #endif

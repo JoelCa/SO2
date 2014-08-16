@@ -562,6 +562,9 @@ TranslationEntry AddrSpace::loadPageFromSwap(int vpn, int physPage)
   pageTable[vpn].valid = true;
   pageTable[vpn].virtualPage = vpn;
   pageTable[vpn].physicalPage = physPage;
+  pageTable[vpn].use = true;
+  pageTable[vpn].dirty = false;
+  pageTable[vpn].readOnly = true;
 
   bitMap->Mark(physPage);
 
