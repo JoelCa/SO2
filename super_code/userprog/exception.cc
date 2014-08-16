@@ -309,6 +309,7 @@ void printTLB()
   printf("--------->La TLB: fin\n");
 }
 
+#ifdef USE_SWAP
 void printCoremap()
 {
   printf("--------->La Coremap: inicio\n");
@@ -323,12 +324,13 @@ int SecondChance()
   int aux[3] = {-1}, i = indexSC, j = 0, k; 
   Thread *t;
 
-  //printf("antes:\n");
-  //printCoremap();
+  printf("antes:\n");
+  printCoremap();
 
   while(j != NumPhysPages) {
     if( !coremap[i].use && !coremap[i].dirty ) {
-      //printCoremap();
+      printf("despues:\n");
+      printCoremap();
       indexSC = (indexSC + 1) % NumPhysPages;
       return i;
     }
@@ -361,12 +363,15 @@ int SecondChance()
   for(i = 0; i < 3; i++) {
     if(aux[i] >= 0) {
       indexSC = (indexSC + 1) % NumPhysPages;
+      printf("despues:\n");
       printCoremap();
       return aux[i];
     }
   }
   ASSERT(false);
 }
+
+#endif
 
 //Observación:
 //-Si NO se usa SWAP <-> todas las páginas estan en memoria
@@ -380,7 +385,7 @@ void pageFaultException()
   TranslationEntry entry;
   Thread *t;
   
-  //DEBUG('v', "\nLos datos son vpn %d, vaddr %d, index %d\n", vpn, vaddr, index);
+  //DEBUG('v', "\nLos datos son vpn %d, vaddr %d, index %d, num pages %d\n", vpn, vaddr, index, currentThread->space->getNumPages());
 
   //printTLB();
   
@@ -396,12 +401,18 @@ void pageFaultException()
     }
 #endif
 
-#ifdef USE_TLB
-    if(machine->tlb[index].valid) {
-      currentThread->space->putEntry(machine->tlb[index]);
-      DEBUG('v', "La pagina con vpn %d fue actualizada por la TLB\n", vpn);
+#if defined(USE_TLB) && defined(USE_SWAP)
+    TranslationEntry TLBEntry = machine->tlb[index];
+    if(TLBEntry.valid) {
+      currentThread->space->putEntry(TLBEntry);
+      int physP = TLBEntry.physicalPage;
+      coremap[physP].use = TLBEntry.use;
+      coremap[physP].dirty = TLBEntry.dirty;
+      DEBUG('v', "La pagina con vpn %d fue actualizada antes de pisarla en TLB\n", TLBEntry.virtualPage);
     }
 #endif
+
+
 
 #if defined(USE_TLB) && !defined(USE_SWAP)
     machine->tlb[index] = entry; // cargamos en la TLB
@@ -410,14 +421,18 @@ void pageFaultException()
     DEBUG('v', "La pagina con vpn %d fue cargada en la TLB\n", vpn);
 
     return ;
- #endif
+#endif
 
 #ifdef USE_SWAP
 
     if(entry.valid) { //la página está en memoria
       DEBUG('v', "Se carga en TLB %d (PAG. EN MEMORIA): physPage %d, vpn %d, y valid %d\n", index, entry.physicalPage, entry.virtualPage, entry.valid);
       machine->tlb[index] = entry; // cargamos en la TLB
+      
+      coremap[entry.physicalPage].use = true;
+
       index = (index + 1) % TLBSize;
+
       return ;
     }
 
@@ -426,9 +441,7 @@ void pageFaultException()
 
     if(physPage >= 0) {
       entry = currentThread->space->loadPageFromSwap(vpn, physPage);
-      //actualizo el coremap
-      coremap[physPage].vpn = vpn;
-      coremap[physPage].thread = currentThread;
+      
       DEBUG('v', "Hay espacio: página física %d\n", physPage);
     }
     else {
@@ -436,11 +449,17 @@ void pageFaultException()
 
       physPage = SecondChance();
 
-      //printf("physPage: %d\n", physPage);
-
       //bitMap->Print();
       DEBUG('v', "NO hay espacio: la página victima es %d\n", physPage);
-      if((t = currentThread->space->savePageToSwap(physPage)) == currentThread) {
+
+      t = currentThread->space->savePageToSwap(physPage);
+      //actualizo el coremap
+      coremap[physPage].vpn = -1;
+      coremap[physPage].thread = NULL;
+      coremap[physPage].use = false;
+      coremap[physPage].dirty = false;
+
+      if(t == currentThread) {
         //Actualizamos la TLB
         for(int i =0; i < TLBSize; i++)
           if(machine->tlb[i].physicalPage == physPage) {
@@ -454,9 +473,14 @@ void pageFaultException()
           }
       }
       entry = currentThread->space->loadPageFromSwap(vpn, physPage);
-      
       //currentThread->space->incIndex();
     }
+
+    //actualizo el coremap
+    coremap[physPage].vpn = vpn;
+    coremap[physPage].thread = currentThread;
+    coremap[physPage].use = true;
+      
 #endif
 
 #ifdef USE_TLB
@@ -471,6 +495,67 @@ void pageFaultException()
     printf("error: acceso invalido\n");
     currentThread->Finish();
   }
+}
+
+
+void readOnlyException() 
+{
+
+  unsigned vaddr = machine->ReadRegister(BadVAddrReg); // la direccion virtual que genero el fallo esta en el registro BadVAddrReg
+  unsigned vpn = vaddr/PageSize; //ver si esta en rango, y si es de solo lectura o escritura
+  int indexCoremap, indexTLB;
+  
+  DEBUG('v', "Interrupción ReadOnly: vpn %d\n", vpn);
+
+
+#if defined(USE_TLB) && defined(USE_SWAP)
+
+  for(indexTLB = 0; indexTLB < TLBSize; indexTLB++) 
+    if(machine->tlb[indexTLB].virtualPage == vpn) {
+      indexCoremap = machine->tlb[indexTLB].physicalPage;
+      break;
+   }
+  
+  DEBUG('v', "Interrupción ReadOnly: physical page %d\n", indexCoremap);
+
+  //actualizamos el coremap
+  coremap[indexCoremap].use = true;
+  coremap[indexCoremap].dirty = true; //Cuando se produce el readOnlyException, es cuando
+                               //se marca como dirty la pagina
+
+  //actualizamos la tlb
+  machine->tlb[indexTLB].use = true;
+  machine->tlb[indexTLB].dirty = true;
+  machine->tlb[indexTLB].readOnly = false;
+#endif
+
+/*
+#ifndef USE_SWAP
+
+  printf("error: acceso invalido\n");
+  currentThread->Finish();
+
+#endif
+*/
+
+#if !defined(USE_TLB) && defined(USE_SWAP)
+
+  TranslationEntry e = currentThread->space->getEntry(vpn);
+
+  indexCoremap = e.physicalPage;
+
+  //actualizamos el coremap
+  coremap[indexCoremap].use = true;
+  coremap[indexCoremap].dirty = true; //en el primer intento de escritura se produce el readOnlyException, y es cuando
+                               //se marca como dirty la pagina, en el segundo intento se modifica la pagina
+
+  e.use = true;
+  e.dirty = true;
+  e.readOnly = false;
+  //actualizamos la pageTable
+  currentThread->space->putEntry(e);
+#endif
+
 }
 
 void
@@ -524,9 +609,8 @@ ExceptionHandler(ExceptionType which)
   else if(which == PageFaultException) {
     pageFaultException();
   }
-  else if(which == ReadOnlyException) { //FALTA
-    printf("error: ReadOnlyException\n");
-    currentThread->Finish();
+  else if(which == ReadOnlyException) {
+    readOnlyException();
   }
   else {
     printf("Unexpected user mode exception %d %d\n", which, type);

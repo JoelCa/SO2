@@ -61,8 +61,7 @@ main.o: ../threads/main.cc /usr/include/stdc-predef.h \
  ../filesys/filesys.h ../filesys/openfile.h ../bin/noff.h \
  ../filesys/openfile.h ../userprog/bitmap.h ../threads/scheduler.h \
  ../machine/interrupt.h ../threads/list.h ../machine/stats.h \
- ../machine/timer.h ../userprog/synchconsole.h ../userprog/bitmap.h \
- ../userprog/coremap.h ../threads/thread.h
+ ../machine/timer.h ../userprog/synchconsole.h ../userprog/bitmap.h
 scheduler.o: ../threads/scheduler.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h ../threads/copyright.h \
  ../threads/scheduler.h ../threads/list.h ../threads/utility.h \
@@ -97,7 +96,7 @@ scheduler.o: ../threads/scheduler.cc /usr/include/stdc-predef.h \
  ../bin/noff.h ../filesys/openfile.h ../userprog/bitmap.h \
  ../threads/system.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../userprog/synchconsole.h \
- ../userprog/bitmap.h ../userprog/coremap.h ../threads/thread.h
+ ../userprog/bitmap.h
 synch.o: ../threads/synch.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h ../threads/copyright.h \
  ../threads/synch.h ../threads/thread.h ../threads/utility.h \
@@ -132,8 +131,7 @@ synch.o: ../threads/synch.cc /usr/include/stdc-predef.h \
  ../bin/noff.h ../filesys/openfile.h ../userprog/bitmap.h \
  ../threads/system.h ../threads/scheduler.h ../machine/interrupt.h \
  ../threads/list.h ../machine/stats.h ../machine/timer.h \
- ../userprog/synchconsole.h ../userprog/bitmap.h ../userprog/coremap.h \
- ../threads/thread.h
+ ../userprog/synchconsole.h ../userprog/bitmap.h
 system.o: ../threads/system.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h ../threads/copyright.h \
  ../threads/system.h ../threads/utility.h ../machine/sysdep.h \
@@ -168,8 +166,7 @@ system.o: ../threads/system.cc /usr/include/stdc-predef.h \
  ../filesys/openfile.h ../bin/noff.h ../filesys/openfile.h \
  ../userprog/bitmap.h ../threads/scheduler.h ../machine/interrupt.h \
  ../threads/list.h ../machine/stats.h ../machine/timer.h \
- ../userprog/synchconsole.h ../userprog/bitmap.h ../userprog/coremap.h \
- ../threads/thread.h ../threads/preemptive.h \
+ ../userprog/synchconsole.h ../userprog/bitmap.h ../threads/preemptive.h \
  /usr/include/x86_64-linux-gnu/bits/timex.h \
  /usr/include/x86_64-linux-gnu/sys/stat.h \
  /usr/include/x86_64-linux-gnu/bits/stat.h /usr/include/fcntl.h \
@@ -214,7 +211,7 @@ thread.o: ../threads/thread.cc /usr/include/stdc-predef.h \
  ../threads/switch.h ../threads/synch.h ../threads/system.h \
  ../threads/scheduler.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../userprog/synchconsole.h \
- ../userprog/bitmap.h ../userprog/coremap.h ../threads/thread.h
+ ../userprog/bitmap.h
 utility.o: ../threads/utility.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h ../threads/copyright.h \
  ../threads/utility.h ../machine/sysdep.h ../threads/copyright.h \
@@ -277,8 +274,7 @@ threadtest.o: ../threads/threadtest.cc /usr/include/stdc-predef.h \
  ../filesys/openfile.h ../bin/noff.h ../filesys/openfile.h \
  ../userprog/bitmap.h ../threads/scheduler.h ../machine/interrupt.h \
  ../threads/list.h ../machine/stats.h ../machine/timer.h \
- ../userprog/synchconsole.h ../userprog/bitmap.h ../userprog/coremap.h \
- ../threads/thread.h ../threads/synch.h
+ ../userprog/synchconsole.h ../userprog/bitmap.h ../threads/synch.h
 interrupt.o: ../machine/interrupt.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h ../threads/copyright.h \
  ../machine/interrupt.h ../threads/list.h ../threads/copyright.h \
@@ -313,8 +309,7 @@ interrupt.o: ../machine/interrupt.cc /usr/include/stdc-predef.h \
  ../filesys/filesys.h ../filesys/openfile.h ../bin/noff.h \
  ../filesys/openfile.h ../userprog/bitmap.h ../threads/scheduler.h \
  ../machine/interrupt.h ../machine/stats.h ../machine/timer.h \
- ../userprog/synchconsole.h ../userprog/bitmap.h ../userprog/coremap.h \
- ../threads/thread.h
+ ../userprog/synchconsole.h ../userprog/bitmap.h
 sysdep.o: ../machine/sysdep.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h ../threads/copyright.h \
  /usr/include/stdio.h /usr/include/features.h \
@@ -381,8 +376,7 @@ sysdep.o: ../machine/sysdep.cc /usr/include/stdc-predef.h \
  ../userprog/addrspace.h ../filesys/filesys.h ../filesys/openfile.h \
  ../bin/noff.h ../filesys/openfile.h ../userprog/bitmap.h \
  ../threads/scheduler.h ../machine/interrupt.h ../machine/stats.h \
- ../machine/timer.h ../userprog/synchconsole.h ../userprog/bitmap.h \
- ../userprog/coremap.h ../threads/thread.h
+ ../machine/timer.h ../userprog/synchconsole.h ../userprog/bitmap.h
 stats.o: ../machine/stats.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h ../threads/copyright.h \
  ../threads/utility.h ../threads/copyright.h ../machine/sysdep.h \
@@ -446,8 +440,7 @@ timer.o: ../machine/timer.cc /usr/include/stdc-predef.h \
  ../filesys/filesys.h ../filesys/openfile.h ../bin/noff.h \
  ../filesys/openfile.h ../userprog/bitmap.h ../threads/scheduler.h \
  ../machine/interrupt.h ../threads/list.h ../machine/stats.h \
- ../machine/timer.h ../userprog/synchconsole.h ../userprog/bitmap.h \
- ../userprog/coremap.h ../threads/thread.h
+ ../machine/timer.h ../userprog/synchconsole.h ../userprog/bitmap.h
 preemptive.o: ../threads/preemptive.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h ../threads/preemptive.h \
  ../threads/system.h ../threads/copyright.h ../threads/utility.h \
@@ -482,8 +475,7 @@ preemptive.o: ../threads/preemptive.cc /usr/include/stdc-predef.h \
  ../filesys/openfile.h ../bin/noff.h ../filesys/openfile.h \
  ../userprog/bitmap.h ../threads/scheduler.h ../machine/interrupt.h \
  ../threads/list.h ../machine/stats.h ../machine/timer.h \
- ../userprog/synchconsole.h ../userprog/bitmap.h ../userprog/coremap.h \
- ../threads/thread.h /usr/include/unistd.h \
+ ../userprog/synchconsole.h ../userprog/bitmap.h /usr/include/unistd.h \
  /usr/include/x86_64-linux-gnu/bits/posix_opt.h \
  /usr/include/x86_64-linux-gnu/bits/environments.h \
  /usr/include/x86_64-linux-gnu/bits/confname.h /usr/include/getopt.h \
@@ -532,7 +524,7 @@ puerto.o: ../threads/puerto.cc /usr/include/stdc-predef.h \
  ../filesys/openfile.h ../userprog/bitmap.h ../threads/system.h \
  ../threads/scheduler.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../userprog/synchconsole.h \
- ../userprog/bitmap.h ../userprog/coremap.h ../threads/thread.h
+ ../userprog/bitmap.h
 addrspace.o: ../userprog/addrspace.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h ../threads/copyright.h \
  ../threads/system.h ../threads/copyright.h ../threads/utility.h \
@@ -567,8 +559,7 @@ addrspace.o: ../userprog/addrspace.cc /usr/include/stdc-predef.h \
  ../filesys/openfile.h ../bin/noff.h ../filesys/openfile.h \
  ../userprog/bitmap.h ../threads/scheduler.h ../machine/interrupt.h \
  ../threads/list.h ../machine/stats.h ../machine/timer.h \
- ../userprog/synchconsole.h ../userprog/bitmap.h ../userprog/coremap.h \
- ../threads/thread.h ../userprog/addrspace.h
+ ../userprog/synchconsole.h ../userprog/bitmap.h ../userprog/addrspace.h
 bitmap.o: ../userprog/bitmap.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h ../threads/copyright.h \
  ../userprog/bitmap.h ../threads/utility.h ../threads/copyright.h \
@@ -632,8 +623,8 @@ exception.o: ../userprog/exception.cc /usr/include/stdc-predef.h \
  ../filesys/openfile.h ../bin/noff.h ../filesys/openfile.h \
  ../userprog/bitmap.h ../threads/scheduler.h ../machine/interrupt.h \
  ../threads/list.h ../machine/stats.h ../machine/timer.h \
- ../userprog/synchconsole.h ../userprog/bitmap.h ../userprog/coremap.h \
- ../threads/thread.h ../userprog/syscall.h
+ ../userprog/synchconsole.h ../userprog/bitmap.h ../userprog/syscall.h \
+ ../threads/thread.h
 progtest.o: ../userprog/progtest.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h ../threads/copyright.h \
  ../threads/system.h ../threads/copyright.h ../threads/utility.h \
@@ -668,9 +659,8 @@ progtest.o: ../userprog/progtest.cc /usr/include/stdc-predef.h \
  ../filesys/openfile.h ../bin/noff.h ../filesys/openfile.h \
  ../userprog/bitmap.h ../threads/scheduler.h ../machine/interrupt.h \
  ../threads/list.h ../machine/stats.h ../machine/timer.h \
- ../userprog/synchconsole.h ../userprog/bitmap.h ../userprog/coremap.h \
- ../threads/thread.h ../machine/console.h ../userprog/addrspace.h \
- ../threads/synch.h
+ ../userprog/synchconsole.h ../userprog/bitmap.h ../machine/console.h \
+ ../userprog/addrspace.h ../threads/synch.h
 console.o: ../machine/console.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h ../threads/copyright.h \
  ../machine/console.h ../threads/utility.h ../threads/copyright.h \
@@ -705,8 +695,7 @@ console.o: ../machine/console.cc /usr/include/stdc-predef.h \
  ../filesys/filesys.h ../filesys/openfile.h ../bin/noff.h \
  ../filesys/openfile.h ../userprog/bitmap.h ../threads/scheduler.h \
  ../machine/interrupt.h ../threads/list.h ../machine/stats.h \
- ../machine/timer.h ../userprog/synchconsole.h ../userprog/bitmap.h \
- ../userprog/coremap.h ../threads/thread.h
+ ../machine/timer.h ../userprog/synchconsole.h ../userprog/bitmap.h
 machine.o: ../machine/machine.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h ../threads/copyright.h \
  ../machine/machine.h ../threads/utility.h ../threads/copyright.h \
@@ -741,8 +730,7 @@ machine.o: ../machine/machine.cc /usr/include/stdc-predef.h \
  ../filesys/filesys.h ../filesys/openfile.h ../bin/noff.h \
  ../filesys/openfile.h ../userprog/bitmap.h ../threads/scheduler.h \
  ../machine/interrupt.h ../threads/list.h ../machine/stats.h \
- ../machine/timer.h ../userprog/synchconsole.h ../userprog/bitmap.h \
- ../userprog/coremap.h ../threads/thread.h
+ ../machine/timer.h ../userprog/synchconsole.h ../userprog/bitmap.h
 mipssim.o: ../machine/mipssim.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h ../threads/copyright.h \
  ../machine/machine.h ../threads/utility.h ../threads/copyright.h \
@@ -778,7 +766,7 @@ mipssim.o: ../machine/mipssim.cc /usr/include/stdc-predef.h \
  ../bin/noff.h ../filesys/openfile.h ../userprog/bitmap.h \
  ../threads/scheduler.h ../machine/interrupt.h ../threads/list.h \
  ../machine/stats.h ../machine/timer.h ../userprog/synchconsole.h \
- ../userprog/bitmap.h ../userprog/coremap.h ../threads/thread.h
+ ../userprog/bitmap.h
 translate.o: ../machine/translate.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h ../threads/copyright.h \
  ../machine/machine.h ../threads/utility.h ../threads/copyright.h \
@@ -813,8 +801,7 @@ translate.o: ../machine/translate.cc /usr/include/stdc-predef.h \
  ../threads/utility.h ../threads/thread.h ../threads/puerto.h \
  ../threads/list.h ../machine/machine.h ../threads/scheduler.h \
  ../machine/interrupt.h ../threads/list.h ../machine/stats.h \
- ../machine/timer.h ../userprog/synchconsole.h ../userprog/bitmap.h \
- ../userprog/coremap.h ../threads/thread.h
+ ../machine/timer.h ../userprog/synchconsole.h ../userprog/bitmap.h
 synchconsole.o: ../userprog/synchconsole.cc /usr/include/stdc-predef.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h ../userprog/synchconsole.h \
  ../machine/console.h ../threads/copyright.h ../threads/utility.h \

@@ -51,9 +51,12 @@ Machine *machine;	// user program memory and registers
 //Agregados para el ejerc. 2 (plancha 3)
 SynchConsole *synchConsole;
 BitMap *bitMap;
-CoreMapEntry *coremap = new CoreMapEntry[NumPhysPages];
-
 #endif
+
+#ifdef USE_SWAP
+CoreMapEntry *coremap = new CoreMapEntry[NumPhysPages];
+#endif
+
 
 #ifdef NETWORK
 PostOffice *postOffice;
@@ -89,19 +92,6 @@ TimerInterruptHandler(void* dummy)
 }
 
 
-static void
-referenceBitsOff(void* arg)
-{
-
-#ifdef USER_PROGRAM
-  currentThread->space->bitsOff();
-#endif
-
-  return ;
-}
-
-
-
 //----------------------------------------------------------------------
 // Initialize
 // 	Initialize Nachos global data structures.  Interpret command
@@ -126,17 +116,18 @@ Initialize(int argc, char **argv)
     
 #ifdef USER_PROGRAM
     bool debugUserProg = false;	// single step user program
+#endif
 
-    //Agregado para el ejercicio 4 (Plancha 4), inicializamos el coremap
+    //Agregado para el ejerc. 4 (Plancha 4)
+#ifdef USE_SWAP
     for(int i = 0; i < NumPhysPages; i++) {
       coremap[i].vpn = -1;
       coremap[i].thread = NULL;
       coremap[i].use = false;
       coremap[i].dirty = false;
     }
-
-
 #endif
+
 #ifdef FILESYS_NEEDED
     bool format = false;	// format disk
 #endif
@@ -199,10 +190,6 @@ Initialize(int argc, char **argv)
 
     //Agregado para el ejerc. 3 (plancha 3)
     timer = new Timer(TimerInterruptHandler, 0, randomYield);
-
-    //Agregado para el ejerc. 4 (Plancha 4)
-    SecondChanceTimer = new Timer(referenceBitsOff, 0, true);
-
 
     threadToBeDestroyed = NULL;
 
@@ -271,6 +258,9 @@ Cleanup()
 
     //Agregado para el ejerc. 1 (plancha 1)
     delete bitMap;
+#endif
+
+#ifdef USE_SWAP
     delete [] coremap;
 #endif
 

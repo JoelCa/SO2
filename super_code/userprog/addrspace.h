@@ -61,22 +61,22 @@ class AddrSpace {
   //Agregado para el ejerc. 3 (plancha 4)
   TranslationEntry loadPageFromBin(int vpn);
 
+  void print();
+
   //Agregado para el ejerc. 4 (plancha 4)
+#ifdef USE_SWAP
   TranslationEntry loadPageFromSwap(int vpn, int physPage);
   Thread *savePageToSwap(int vpn);
   //void setASID(int value) {asid = value; };
   OpenFile *getSwap();
-  void toSwap(int vpn);
+  void emptyPage(int vpn);
 
-  void bitsOff();
   void offReferenceBit(int physPage);
-
-
-  void print();
 
   static int SwapIndex;
   static int victimIndex;
   static void incIndex();
+#endif
 
  private:
   TranslationEntry *pageTable;	// Assume linear page table translation
@@ -92,9 +92,11 @@ class AddrSpace {
   char *fileName;
 
   //Agregado para el ejerc. 4 (plancha 4)
+#ifdef USE_SWAP
   char swapName[11];
   OpenFile *swap;
   int limitInMem;
+#endif
   
 };
 #endif // ADDRSPACE_H

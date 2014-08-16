@@ -39,7 +39,9 @@ extern SynchConsole *synchConsole;
 
 #include "bitmap.h"
 extern BitMap *bitMap;
+#endif
 
+#ifdef USE_SWAP
 #include "coremap.h"
 extern CoreMapEntry *coremap;
 #endif

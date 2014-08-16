@@ -15,6 +15,8 @@ Si pude cargar N páginas al inicio, entonces N es el límite de páginas fisica
 12) Esta bien crear un reloj para apagar los bits de referencia periodicamente? No es necesario.
 13) Debemos guardar a swap la pagina victima si tiene los bits (0,0)? No es necesario.
 
+14) Consideramos el caso en que NO se use TLB?
+
 Observación:
 
 - Si esta totalmente ocupada la memoria, es decir, no hay páginas libres, y un proceso nuevo intenta ejecutarse, ¿Que se deberia hacer?. ¿Hay que quitar una página a otro proceso o aguardar a que se libere?

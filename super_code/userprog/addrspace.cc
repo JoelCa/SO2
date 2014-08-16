@@ -19,9 +19,10 @@
 #include "system.h"
 #include "addrspace.h"
 
-
+#ifdef USE_SWAP
 int AddrSpace::victimIndex = 0;
 int AddrSpace::SwapIndex = 0;
+#endif
 
 //----------------------------------------------------------------------
 // SwapHeader
@@ -68,8 +69,10 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
   unsigned j;
   bool useSwap;
 
-  //agregado para el ejercicio 3  de la plancha 4
+  //agregado para el ejercicio 3  (plancha 4)
+#ifdef USE_SWAP
   fileName = name;
+#endif
 
   executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
   if ((noffH.noffMagic != NOFFMAGIC) && 
@@ -126,13 +129,21 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
       pageTable[j].physicalPage = physPosition;
       pageTable[j].use = false;
       pageTable[j].dirty = false;
-      pageTable[j].readOnly = false;  // if the code segment was entirely on 
-      // a separate page, we could set its 
-      // pages to be read-only
+
+#ifdef USE_SWAP
+      pageTable[j].readOnly = true; //Al marcarla como solo lectura, y usando swap, podemos identificar
+      //el momento en que se quiera escribir esta página
 
       //completo el coremap
       coremap[physPosition].vpn = j;
       coremap[physPosition].thread = currentThread;
+      coremap[physPosition].use = false;
+      coremap[physPosition].dirty = false;
+
+#else
+      pageTable[j].readOnly = false;
+#endif
+      
     }
   }
 
@@ -186,15 +197,18 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
       int virt_addr = i + noffH.code.virtualAddr;
       int vpn = virt_addr/PageSize;
       int offset = virt_addr % PageSize;
-      if(pageTable[vpn].valid) { //Esta en memoria
+
+      if(pageTable[vpn].valid) {
         int phys_page = pageTable[vpn].physicalPage;
         machine->mainMemory[offset+phys_page*PageSize] = c;
         DEBUG('z', "el fileAddr del CODE %d, virtualAddr %d, el vpn %d, offset %d, physPage %d \n",i + noffH.code.inFileAddr, i + noffH.code.virtualAddr, vpn, offset, phys_page);
       }
-      else { //Esta en Swap
+      else {
+#ifdef USE_SWAP
         int phys_sector = vpn;
         if(swap->WriteAt(&c, 1, offset+phys_sector*PageSize) <= 0)
           DEBUG('v', "Error al escribir en %d Swap\n", offset+phys_sector*PageSize);
+#endif
       }
     }
   }
@@ -208,15 +222,18 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
       int virt_addr = i + noffH.initData.virtualAddr;
       int vpn = virt_addr/PageSize;
       int offset = virt_addr % PageSize;
-      if (pageTable[vpn].valid) {
+
+      if(pageTable[vpn].valid) {
         int phys_page = pageTable[vpn].physicalPage;
         machine->mainMemory[offset+phys_page*PageSize] = c;
         DEBUG('z', "el fileAddr del INITDATA %d, virtualAddr %d, el vpn %d, offset %d, physPage %d \n",i + noffH.initData.inFileAddr, i + noffH.initData.virtualAddr, vpn, offset, phys_page);
       }
       else {
+#ifdef USE_SWAP
         int phys_sector = vpn;
         if(swap->WriteAt(&c, 1, offset+phys_sector*PageSize) <= 0)
           DEBUG('v', "Error al escribir en %d Swap\n", offset+phys_sector*PageSize);
+#endif
       }
     }
   }
@@ -237,14 +254,19 @@ AddrSpace::~AddrSpace()
       int physPage = pageTable[i].physicalPage;
       bitMap->Clear(physPage);
       DEBUG('v', "Se libera el marco %d\n", physPage);
+#ifdef USE_SWAP
       coremap[physPage].vpn = -1;
       coremap[physPage].thread = NULL;
       coremap[physPage].use = false;
       coremap[physPage].dirty = false;
+#endif
     }
   }
-  delete [] pageTable;
+
+#ifdef USE_SWAP
   fileSystem->Remove(swapName);
+#endif
+  delete [] pageTable;
 }
 
 //----------------------------------------------------------------------
@@ -289,10 +311,6 @@ AddrSpace::InitRegisters()
 
 void AddrSpace::SaveState() 
 {
-  //printf("entro a saveState %p\n", currentThread);
-  /*for (int i = 0; i < TLBSize; i++)
-    printf("tlb: %d %d\n", i, machine->tlb[i].valid);
-    printf("\n");*/
 #ifdef USE_TLB
   for (int i = 0; i < TLBSize; i++)
     if(machine->tlb[i].valid)
@@ -320,10 +338,6 @@ void AddrSpace::RestoreState()
     machine->tlb[i].use = false;
     machine->tlb[i].dirty = false;
   }
-
-  /*for (int i = 0; i < TLBSize; i++)
-    printf("tlb: %d %d\n", i, machine->tlb[i].valid);
-    printf("\n");*/
 #else
   machine->pageTable = pageTable;
   machine->pageTableSize = numPages;
@@ -486,17 +500,8 @@ TranslationEntry AddrSpace::loadPageFromBin(int vpn)
   return pageTable[vpn];
 }
 
-void printCoremap2()
-{
-  printf("--------->La Coremap: inicio\n");
-  for(int i = 0; i < NumPhysPages; i++) {
-    printf("physPage: %d, vpn: %d, use: %d, dirty: %d, thread: %p\n", i, coremap[i].vpn, coremap[i].use, coremap[i].dirty, coremap[i].thread);
-  }
-  printf("--------->La Coremap: fin\n");
-}
-
-
 //Pasamos la pagina victima a swap
+#ifdef USE_SWAP
 Thread * AddrSpace::savePageToSwap(int physPage)
 {
   int val;
@@ -526,19 +531,14 @@ Thread * AddrSpace::savePageToSwap(int physPage)
     DEBUG('v', "Error al escribir la página con vpn %d, a swap\n", vpn);  
 
   //marcar en el proceso correspondiente que la página esta en swap
-  victimThread->space->toSwap(vpn);
-
-  //actualizo el coremap
-  coremap[physPage].vpn = -1;
-  coremap[physPage].thread = NULL;
-  coremap[physPage].use = false;
-  coremap[physPage].dirty = false;
+  victimThread->space->emptyPage(vpn);
 
   //marco como libre la pagina fisica
   bitMap->Clear(physPage);
   
   return victimThread;
 }
+
 
 //Pasamos a memoria la pagina que necesitamos
 TranslationEntry AddrSpace::loadPageFromSwap(int vpn, int physPage)
@@ -576,33 +576,17 @@ void AddrSpace::incIndex()
 
 OpenFile * AddrSpace::getSwap()
 {
-  //DEBUG('q', "valor\n");
   return swap;
 }
 
-void AddrSpace::toSwap(int vpn)
+void AddrSpace::emptyPage(int vpn)
 {
   pageTable[vpn].valid = false;
   pageTable[vpn].physicalPage = -1;
+  pageTable[vpn].use = false;
+  pageTable[vpn].dirty = false;
 }
 
-
-void AddrSpace::bitsOff()
-{
-
-  //DEBUG('v', "ENTRO\n");
-
-#ifdef USE_TLB
-  for(int i = 0; i < TLBSize; i++)
-    machine->tlb[i].use = false;
-#endif
-
-  for(int i = 0; i < numPages; i++)
-    pageTable[i].use = false;
-  
-  for(int i = 0; i < NumPhysPages; i++)
-    coremap[i].use = false;
-}
 
 void AddrSpace::offReferenceBit(int physPage)
 {
@@ -612,6 +596,17 @@ void AddrSpace::offReferenceBit(int physPage)
       break;
     }
 }
+
+void printCoremap2()
+{
+  printf("--------->La Coremap: inicio\n");
+  for(int i = 0; i < NumPhysPages; i++) {
+    printf("physPage: %d, vpn: %d, use: %d, dirty: %d, thread: %p\n", i, coremap[i].vpn, coremap[i].use, coremap[i].dirty, coremap[i].thread);
+  }
+  printf("--------->La Coremap: fin\n");
+}
+
+#endif
 
   
 void AddrSpace::print()
