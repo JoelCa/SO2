@@ -256,11 +256,11 @@ Thread::Finish ()
   }
   
   if(accessCounter == 0)
-    DEBUG('v', "Hit ratio: 0 \%\n");
+    DEBUG('q', "Hit ratio: 0 \%\n");
   else {
     float hit = 100 - ((faultCounter * 100) / accessCounter);
-    DEBUG('v', "Hit ratio: %3.1f \%\n", hit);
-    DEBUG('v', "access %d\nfault %d\n", accessCounter, faultCounter);
+    DEBUG('q', "Hit ratio: %3.1f \%\n", hit);
+    DEBUG('q', "access %d\nfault %d\n", accessCounter, faultCounter);
   }
 
   threadToBeDestroyed = currentThread;

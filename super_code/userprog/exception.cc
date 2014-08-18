@@ -26,14 +26,16 @@
 #include "syscall.h"
 #include "thread.h"
 
-//#define readMem(a,b,c) !(machine->ReadMem(a,b,c)) : (machine->ReadMem(a,b,c)) ? 
-//#define writeMem(a,b,c) ASSERT(machine->WriteMem(a,b,c))
+//Agregado
+#include <string.h>
+
 
 #define MAXLENGTH 32
 
 
 int indexSC;
 
+//Agregado para la plancha 4
 //Deben intentarse a lo sumo 3 veces el acceso a memória
 //Una vez para recuperarse de un PageFault, y otra para
 //modificar una página que era de solo escritura.
@@ -166,7 +168,6 @@ void syscallWrite()
     DEBUG('u',"error: syscall Write, fd %d invalido\n", fd);
 
   increasePC();
-// delete [] buff;
 }
 
 void syscallRead()
@@ -194,7 +195,6 @@ void syscallRead()
   machine->WriteRegister(2,nbytes);
 
   increasePC();
-  //delete [] buff;
 }
 
 void syscallOpen()
@@ -216,7 +216,6 @@ void syscallOpen()
   machine->WriteRegister(2, fd);
 
   increasePC();
-  //delete [] name;
 }
 
 void syscallClose()
@@ -250,7 +249,6 @@ void syscallJoin()
   Thread *t;
 
   if((t = searchThread(pid)) != NULL) {
-    //printf("el thread %p hace Join\n", t);
     t->Join();
     status = t->getMsj();
     DEBUG('u', "Join: el retorno del hijo es %d\n", status);
@@ -271,6 +269,11 @@ void syscallExec()
   int argv_addr = machine->ReadRegister(6);
   char **argv = new char*[argc];
   char *name = new char[MAXLENGTH];
+
+  //Agregado:
+  char buffer[50];
+
+
   int pid;
   OpenFile *op;
   Thread *t;
@@ -278,7 +281,8 @@ void syscallExec()
 
   readStrFromUsr(vaddr, name);
   if ((op = fileSystem->Open(name)) == NULL) {
-    printf("%s: no se encontró la orden\n", name);
+    sprintf(buffer,"%s: no se encontró la orden\n", name);
+    synchConsole->PutBuff(buffer,strlen(buffer));
     pid = -1;
   }
   else {
@@ -328,10 +332,10 @@ void printCoremap()
 
 int SecondChance()
 {
-  int aux[3] = {-1}, victim = indexSC;
+  int aux[3] = {-1,-1,-1}, victim = indexSC;
 
-  //printf("Previo a aplicar el alg. Segunda oportunidad con índice %d\n", victim);
-  //printCoremap();
+  DEBUG('v',"Previo a aplicar el alg. Segunda oportunidad con índice %d\n", victim);
+  printCoremap();
 
   for(int j = 0; j < NumPhysPages; j++) {
     CoreMapEntry entry = coremap[victim];
@@ -343,7 +347,7 @@ int SecondChance()
       aux[0] = victim;
     else if( entry.use && !entry.dirty && (aux[1] == -1))
       aux[1] = victim;
-    else if ( !entry.use && !entry.dirty && (aux[2] == -1))
+    else if ( entry.use && entry.dirty && (aux[2] == -1))
       aux[2] = victim;
 
     if(entry.use) {
@@ -377,17 +381,13 @@ int SecondChance()
 void pageFaultException()
 {
   static int indexTLB = 0;
-  unsigned vaddr = machine->ReadRegister(BadVAddrReg); // la direccion virtual que genero el fallo esta en el registro BadVAddrReg
-  unsigned vpn = vaddr/PageSize; //ver si esta en rango, y si es de solo lectura o escritura
+  unsigned vaddr = machine->ReadRegister(BadVAddrReg);
+  unsigned vpn = vaddr/PageSize;
   unsigned vpn2 = vpn;
   int physPage;
   TranslationEntry entry;
   Thread *t;
-  
-  //DEBUG('v', "\nLos datos son vpn %d, vaddr %d, indexTLB %d, num pages %d\n", vpn, vaddr, indexTLB, currentThread->space->getNumPages());
-
-  //printTLB();
-  
+    
   if((vpn < currentThread->space->getNumPages()) && (vpn >= 0)) {
 
     entry = currentThread->space->getEntry(vpn);
@@ -412,6 +412,9 @@ void pageFaultException()
 #endif
 
 #if defined(USE_TLB) && !defined(USE_SWAP)
+    if(machine->tlb[indexTLB].valid) {
+      currentThread->space->putEntry(machine->tlb[indexTLB]);
+    }
     machine->tlb[indexTLB] = entry; // cargamos en la TLB
     //DEBUG('v',"TLB Actualizada, vpn: %d,  physPage %d\n", machine->tlb[indexTLB].virtualPage, machine->tlb[indexTLB].physicalPage);
     indexTLB = (indexTLB + 1) % TLBSize;
@@ -434,7 +437,6 @@ void pageFaultException()
       return ;
     }
 
-    //bitMap->Print();
     physPage = bitMap->Find();
 
     if(physPage >= 0) {
@@ -443,11 +445,11 @@ void pageFaultException()
       DEBUG('v', "Hay espacio: página física %d\n", physPage);
     }
     else {
-      //physPage = currentThread->space->victimIndexTLB;
+      //Si se quiere utilizar el algoritmo de paginacion que elige segun el nº de pagina fisica a la proxima victima, descomentar la linea de abajo y comentar la 451
+      //physPage = currentThread->space->victimIndex;
 
       physPage = SecondChance();
 
-      //bitMap->Print();
       DEBUG('v', "NO hay espacio: la página victima es %d\n", physPage);
 
       t = currentThread->space->savePageToSwap(physPage);
@@ -473,7 +475,8 @@ void pageFaultException()
           }
       }
       entry = currentThread->space->loadPageFromSwap(vpn, physPage);
-      //currentThread->space->incIndexTLB();
+      //Cuando se utiliza el otro algoritmo de paginacion, se debe descomentar la linea de abajo para que se incremente el indice
+      //currentThread->space->incIndex();
     }
 
     //actualizo el coremap
@@ -481,16 +484,13 @@ void pageFaultException()
     coremap[physPage].thread = currentThread;
     coremap[physPage].use = true;
     coremap[physPage].dirty = false;
-
-    //printf("Luego de tratar la exepción %d\n", indexSC);
-    //printCoremap();
 #endif
 
 #ifdef USE_TLB
     DEBUG('v', "Se carga en TLB %d: physPage %d, vpn %d, y valid %d\n\n", indexTLB, entry.physicalPage, entry.virtualPage, entry.valid);
 
     machine->tlb[indexTLB] = entry;
-    indexTLB = (indexTLB + 1) % TLBSize; //indexTLB es global inicializada en cero      
+    indexTLB = (indexTLB + 1) % TLBSize;
 #endif
 
   }
@@ -503,11 +503,9 @@ void pageFaultException()
 
 void readOnlyException() 
 {
-  unsigned vaddr = machine->ReadRegister(BadVAddrReg); // la direccion virtual que genero el fallo esta en el registro BadVAddrReg
-  unsigned vpn = vaddr/PageSize; //ver si esta en rango, y si es de solo lectura o escritura
+  unsigned vaddr = machine->ReadRegister(BadVAddrReg);
+  unsigned vpn = vaddr/PageSize;
   int coremapI, TLBI;
-  
-  printf("Interrupción ReadOnly: vpn %d\n", vpn);
 
 #if defined(USE_TLB) && defined(USE_SWAP)
 
@@ -522,7 +520,7 @@ void readOnlyException()
   //actualizamos el coremap
   coremap[coremapI].use = true;
   coremap[coremapI].dirty = true; //Cuando se produce el readOnlyException, es cuando
-                               //se marca como dirty la pagina
+                                  //se marca como dirty la pagina
 
   //No hace falta modificar los bits used y dirty, por que se hace por hardware
   machine->tlb[TLBI].readOnly = false;

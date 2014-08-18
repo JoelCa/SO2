@@ -198,7 +198,7 @@ AddrSpace::AddrSpace(OpenFile *executable, char *name)
       int vpn = virt_addr/PageSize;
       int offset = virt_addr % PageSize;
 
-      if(pageTable[vpn].valid) {
+      if(pageTable[vpn].valid) { //esta en memoria
         int phys_page = pageTable[vpn].physicalPage;
         machine->mainMemory[offset+phys_page*PageSize] = c;
         DEBUG('z', "el fileAddr del CODE %d, virtualAddr %d, el vpn %d, offset %d, physPage %d \n",i + noffH.code.inFileAddr, i + noffH.code.virtualAddr, vpn, offset, phys_page);
@@ -328,7 +328,6 @@ void AddrSpace::SaveState()
 
 void AddrSpace::RestoreState() 
 {
-  //printf("entro a restoreState %p\n", currentThread);
 #ifdef USE_TLB
   for (int i = 0; i < TLBSize; i++) {
     machine->tlb[i].valid = false;
@@ -511,11 +510,9 @@ Thread * AddrSpace::savePageToSwap(int physPage)
   int phys_sector = vpn;
   OpenFile *victimSwap;
   Thread *victimThread = coremap[physPage].thread;
-  char buff[PageSize] = {0}; //esta bien inicializarla en cero?
+  char buff[PageSize] = {0};
 
   if(victimThread == NULL) {
-    //printf("Lo que genera el error: %p %d\n", victimThread, physPage);
-    //printCoremap2();
     printf("Error: el marco %d está libre, no deberia existir una víctima\n", physPage);
     ASSERT(false);
   }
@@ -538,7 +535,6 @@ Thread * AddrSpace::savePageToSwap(int physPage)
   
   return victimThread;
 }
-
 
 //Pasamos a memoria la pagina que necesitamos
 TranslationEntry AddrSpace::loadPageFromSwap(int vpn, int physPage)
@@ -567,7 +563,7 @@ TranslationEntry AddrSpace::loadPageFromSwap(int vpn, int physPage)
   pageTable[vpn].readOnly = true;
 
   bitMap->Mark(physPage);
-
+ 
   return pageTable[vpn];
 }
 
@@ -600,24 +596,4 @@ void AddrSpace::offReferenceBit(int physPage)
     }
 }
 
-void printCoremap2()
-{
-  printf("--------->La Coremap: inicio\n");
-  for(int i = 0; i < NumPhysPages; i++) {
-    printf("physPage: %d, vpn: %d, use: %d, dirty: %d, thread: %p\n", i, coremap[i].vpn, coremap[i].use, coremap[i].dirty, coremap[i].thread);
-  }
-  printf("--------->La Coremap: fin\n");
-}
-
 #endif
-
-  
-void AddrSpace::print()
-{
-  for (int j = 0; j < numPages; j++) {
-    printf("PAGE vpn: %d\n", pageTable[j].virtualPage);
-    printf("PAGE phys: %d\n", pageTable[j].physicalPage);
-    printf("PAGE valid: %d\n", pageTable[j].valid);
-    printf("\n");
-  }
-}

@@ -40,3 +40,11 @@ Ejercicio 4 (Paso por paso) :
             - hacer un clear de la fila que referenciaba a la página cargada
 
 - La carga por demanda, funciona con TLB. No queremos sacar la bandera USE_TLB, para ver que funciona sin TLB tambien.
+
+
+Cometario  FINAL:
+
+- Realizamos el ejercicio que pide implementar carga por demanda (ejercicio 3 de la plancha 4) suponiendo que se utiliza TLB y no se considera SWAP
+- Mandar un mail a Esteban para recordarle que vamos a entregar la plancha 3 modificada
+- Hay que hacer un txt aparte aclarando los supuestos que hicimos? Como por ejemplo para decir que si se quiere utilizar FIFO hay que descomentar algunas lineas y comentar otras
+- Decir que no arreglamos el sort

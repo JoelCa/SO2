@@ -61,13 +61,10 @@ class AddrSpace {
   //Agregado para el ejerc. 3 (plancha 4)
   TranslationEntry loadPageFromBin(int vpn);
 
-  void print();
-
   //Agregado para el ejerc. 4 (plancha 4)
 #ifdef USE_SWAP
   TranslationEntry loadPageFromSwap(int vpn, int physPage);
   Thread *savePageToSwap(int vpn);
-  //void setASID(int value) {asid = value; };
   OpenFile *getSwap();
   void emptyPage(int vpn);
 
