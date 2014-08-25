@@ -48,3 +48,16 @@ Cometario  FINAL:
 - Mandar un mail a Esteban para recordarle que vamos a entregar la plancha 3 modificada
 - Hay que hacer un txt aparte aclarando los supuestos que hicimos? Como por ejemplo para decir que si se quiere utilizar FIFO hay que descomentar algunas lineas y comentar otras
 - Decir que no arreglamos el sort
+- Plancha 4: estan mal los "currentThread->incAccessCounter();" y "currentThread->incFaultCounter();" en translate.cc de Machine.
+
+Hacer:
+
+- Ver que un exec con un ejecutable con nombre muy largo no funciona
+- Arreglar el Makefile de test para entregar Plancha 3
+- Ver que la fórmula de offset.. (corrimiento), es lo mismo que poner un i
+
+Observaciones Plancha 3
+- Nuestra implementación del Exec toma una string de longitud a lo sumo de 31 bytes, dicha
+string corresponde al nombre del binario a ejecutar.
+- Cuando la syscall Exec advierte, "nombre": no se encontró la orden. Esta string, tiene una long.
+limitada. Un "nombre" muy largo, generaria fallas.

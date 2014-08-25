@@ -26,12 +26,8 @@
 #include "syscall.h"
 #include "thread.h"
 
-//Agregado
-#include <string.h>
-
-
 #define MAXLENGTH 32
-
+#define ERRORMESS 64
 
 int indexSC;
 
@@ -175,7 +171,7 @@ void syscallRead()
   int vaddr = machine->ReadRegister(4);
   int size = machine->ReadRegister(5);
   int fd = machine->ReadRegister(6);
-  char buff[MAXLENGTH];
+  char buff[size];
   int nbytes;
   OpenFile *op;
 
@@ -269,11 +265,7 @@ void syscallExec()
   int argv_addr = machine->ReadRegister(6);
   char **argv = new char*[argc];
   char *name = new char[MAXLENGTH];
-
-  //Agregado:
-  char buffer[50];
-
-
+  char buffer[ERRORMESS];
   int pid;
   OpenFile *op;
   Thread *t;
@@ -320,7 +312,6 @@ void printTLB()
 }
 
 #ifdef USE_SWAP
-
 void printCoremap()
 {
   printf("--------->La Coremap: inicio\n");
@@ -549,6 +540,11 @@ void
 ExceptionHandler(ExceptionType which)
 {
   int type = machine->ReadRegister(2);
+
+  /*
+  //Agregado para el ejerc. 4 (Plancha 4)
+  currentThread->incFaultCounter();
+  */
 
   if(which == SyscallException) {
     switch(type) {

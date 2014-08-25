@@ -95,12 +95,9 @@ Machine::ReadMem(int addr, int size, int *value)
     
     exception = Translate(addr, &physicalAddress, size, false);
     
-    currentThread->incAccessCounter();
-
     if (exception != NoException) {
 	machine->RaiseException(exception, addr);
-        currentThread->incFaultCounter();
-	return false;
+    	return false;
     }
     switch (size) {
       case 1:
@@ -196,6 +193,11 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
     unsigned int pageFrame;
 
     DEBUG('a', "\tTranslate 0x%x, %s: ", virtAddr, writing ? "write" : "read");
+
+    /*
+    //Agregrado para el ejerc. 2 (Plancha 4)
+    currentThread->incAccessCounter();
+    */
 
 // check for alignment errors
     if (((size == 4) && (virtAddr & 0x3)) || ((size == 2) && (virtAddr & 0x1))){

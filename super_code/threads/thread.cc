@@ -255,11 +255,12 @@ Thread::Finish ()
     childThread->Join();
   }
   
+  //Agregados para el ejercicio 2 (plancha 4)
   if(accessCounter == 0)
     DEBUG('q', "Hit ratio: 0 \%\n");
   else {
-    float hit = 100 - ((faultCounter * 100) / accessCounter);
-    DEBUG('q', "Hit ratio: %3.1f \%\n", hit);
+    //float hit = 100 - ((faultCounter/accessCounter)*100);
+    DEBUG('q', "Hit ratio: %g\%\n", (((double)(accessCounter - faultCounter)/accessCounter)*100));
     DEBUG('q', "access %d\nfault %d\n", accessCounter, faultCounter);
   }
 
@@ -471,6 +472,7 @@ int addThread(Thread *t)
   return Thread::pidCounter - 1;
 }
 
+//Agregados para el ejercicio 2 (plancha 4)
 
 void Thread::incAccessCounter()
 {
